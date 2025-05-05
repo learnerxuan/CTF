@@ -7,8 +7,7 @@ First thing, I opened the APK using jadx-gui, which decompiles Android APKs and 
 After that, I copied AndroidManifest.xml and the code of MainActivity, and send it to Gemini to help me extract valuable information. 
 Gemini suggested me to look at the function "Utils".
 
-<pre>```
-package com.example.uvt_ctf_2025;
+```package com.example.uvt_ctf_2025;
 
 /* loaded from: classes3.dex */
 public class Utils {
@@ -21,6 +20,5 @@ public class Utils {
     static {
         System.loadLibrary("native-lib");
     }
-}
-```</pre>
+}```
 Use `ls` to list files.

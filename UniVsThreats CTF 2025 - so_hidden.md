@@ -3,8 +3,8 @@ Learned a bit of Android Pentest a while ago before this CTF. I solved this chal
 DESCRIPTION: We found an APK. It is useless, or isn't it?  
 An APK named "jokes_and_info.apk" was given.
 
-First thing, I opened the APK using jadx-gui, which decompiles Android APKs and DEX files into readable Java source code.  
-After that, I copied AndroidManifest.xml and the code of MainActivity and sent it to Gemini to help me extract valuable information.  
+1. First thing, I opened the APK using jadx-gui, which decompiles Android APKs and DEX files into readable Java source code.  
+2. After that, I copied AndroidManifest.xml and the code of MainActivity and sent it to Gemini to help me extract valuable information.  
 Gemini suggested I look at the function `Utils`.
 
 ```java

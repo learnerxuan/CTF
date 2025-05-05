@@ -21,7 +21,7 @@ public class Utils {
     static {
         System.loadLibrary("native-lib");
     }
-}```
-
+}
+```
 http://91.99.1.179:42234/somebody-found-a-random-flag-path
 {"flag":"UVT{m0b1l3_.s0_m4y_c0nt4in_s3ns1tiv3_1nf0}"}

@@ -1,8 +1,8 @@
-# Android Pentesting CTF Writeup - Hidden Flag Challenge
+# Android Pentesting CTF Writeup - so_hidden Challenge
 
 ## Challenge Overview
-**Name:** "We found an APK. It is useless, or isn't it?"  
-**Description:** An APK named "jokes_and_info.apk" was provided for analysis.
+**Description:** "We found an APK. It is useless, or isn't it?"  
+An APK named "jokes_and_info.apk" was provided for analysis.
 
 ## Solution Approach
 

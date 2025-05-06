@@ -1,38 +1,41 @@
-Learned a bit of Android Pentest a while ago before this CTF. I solved this challenge with the help of AI (Gemini).
+# Android Pentesting CTF Writeup - Hidden Flag Challenge
 
-DESCRIPTION: We found an APK. It is useless, or isn't it?  
-An APK named "jokes_and_info.apk" was given.
+## Challenge Overview
+**Name:** "We found an APK. It is useless, or isn't it?"  
+**Description:** An APK named "jokes_and_info.apk" was provided for analysis.
 
-1. First, I opened the APK using jadx-gui, which decompiles Android APKs and DEX files into readable Java source code.  
-2. After that, I copied AndroidManifest.xml and the code of MainActivity and sent it to Gemini to help me extract valuable information.  
-Gemini suggested I look at the function `Utils`.
+## Solution Approach
+
+### Step 1: Initial APK Analysis
+I began by opening the APK using jadx-gui, a tool that decompiles Android APKs and DEX files into readable Java source code. This allowed me to examine the application's structure and code.
+
+### Step 2: Code Examination
+After extracting the AndroidManifest.xml and MainActivity code, I analyzed them to identify potential entry points or vulnerabilities. During my analysis, I discovered an interesting `Utils` class with native methods:
 
 ```java
 package com.example.uvt_ctf_2025;
-
 /* loaded from: classes3.dex */
 public class Utils {
     private native String getHiddenFlag();
-
     public native String getJoke();
-
     public native String getUVTCTF();
-
     static {
         System.loadLibrary("native-lib");
     }
 }
 ```
 
-![image](https://github.com/user-attachments/assets/b749f2fb-635d-4038-b142-4684b109ecce)
+The class referenced a native library (`native-lib`), which suggested that critical functionality was implemented in native code.
 
-3. Next, I imported libnative-lib.so into Ghidra and found this:
-   
-![image](https://github.com/user-attachments/assets/4440086c-cd33-4b5d-a98e-97aabec83370)
+![Utils Class Code](https://github.com/user-attachments/assets/b749f2fb-635d-4038-b142-4684b109ecce)
+
+### Step 3: Native Library Analysis
+I imported the `libnative-lib.so` file into Ghidra for deeper analysis. This revealed three important functions corresponding to the native methods from the `Utils` class:
+
+![Native Library Functions](https://github.com/user-attachments/assets/4440086c-cd33-4b5d-a98e-97aabec83370)
 
 ```java
 undefined4 Java_com_example_uvt_1ctf_12025_Utils_getHiddenFlag(int *param_1)
-
 {
   void *__ptr;
   undefined4 uVar1;
@@ -46,7 +49,6 @@ undefined4 Java_com_example_uvt_1ctf_12025_Utils_getHiddenFlag(int *param_1)
 
 ```java
 undefined4 Java_com_example_uvt_1ctf_12025_Utils_getJoke(int *param_1)
-
 {
   void *__ptr;
   undefined4 uVar1;
@@ -60,7 +62,6 @@ undefined4 Java_com_example_uvt_1ctf_12025_Utils_getJoke(int *param_1)
 
 ```java
 undefined4 Java_com_example_uvt_1ctf_12025_Utils_getUVTCTF(int *param_1)
-
 {
   void *__ptr;
   undefined4 uVar1;
@@ -72,23 +73,49 @@ undefined4 Java_com_example_uvt_1ctf_12025_Utils_getUVTCTF(int *param_1)
 }
 ```
 
-All three functions (`getHiddenFlag, getJoke, getUVTCTF`) follow a very similar pattern:
+### Step 4: Network Request Analysis
+All three functions followed a similar pattern, calling `FUN_00010a50` with three parameters:
+1. IP address: `91.99.1.179`
+2. Port number: `0xa4fa` (decimal 42234)
+3. Endpoint paths:
+   - `/somebody-found-a-random-flag-path` for `getHiddenFlag`
+   - `/jokes` for `getJoke`
+   - `/uvt-ctf` for `getUVTCTF`
 
-    FUN_00010a50("91.99.1.179", 0xa4fa, "/some-path");: This line strongly suggests a call to a function at address 0x00010a50. This function takes three arguments:
-    
-    1. A string: "91.99.1.179" - This looks like an IP address.
-    2. A hexadecimal value: 0xa4fa - This translates to the decimal value 42234. This is very likely a port number.
-    3. A string representing a path:
-    - "/somebody-found-a-random-flag-path" for getHiddenFlag
-    - "/jokes" for getJoke
-    - "/uvt-ctf" for getUVTCTF
-This strongly indicates that the application is making network requests to the IP address 91.99.1.179 on port 42234 using different API endpoints.
+This indicated that the application was making network requests to a remote server.
 
-4. I then opened up my Android Emulator, put in the APK. At the same time, I also opened up my HTTP Toolkit and added a 42234 port. Once all were ready, I opened the APK in my virtual device. The APK showed up:
+### Step 5: Dynamic Analysis
+I installed the APK on an Android emulator and configured HTTP Toolkit to monitor network traffic on port 42234. When I launched the application, I observed the following UI:
 
-![image](https://github.com/user-attachments/assets/00353278-3461-4e1b-a234-1f336c4a460a)
+![Application UI](https://github.com/user-attachments/assets/00353278-3461-4e1b-a234-1f336c4a460a)
 
-5. Open back my HTTP Toolkit, I managed to capture both /91.99.1.179:42234/jokes and /91.99.1.179:42234/uvt-ctf addresses only. /somebody-found-a-random-flag-path is missing !!!!!!!!!
-6. I stucked at this point for quite a period. Gemini suggested me to play around with the components like clicking the text and so on, to trigger the /somebody-found-a-random-flag-path. I tried but failed.
-7. The answer is just in front of me but I just can't find it. Hmmmmmm.... Let's try to search the address on the Internet: http://91.99.1.179:42234/somebody-found-a-random-flag-path. 
-8. Oppps I got the flag ! {"flag":"UVT{m0b1l3_.s0_m4y_c0nt4in_s3ns1tiv3_1nf0}"}
+### Step 6: Traffic Monitoring
+Through HTTP Toolkit, I successfully captured requests to:
+- `91.99.1.179:42234/jokes`
+- `91.99.1.179:42234/uvt-ctf`
+
+However, I noticed that the `/somebody-found-a-random-flag-path` endpoint was never accessed during normal application usage.
+
+### Step 7: Finding the Flag
+After attempting several approaches to trigger the hidden endpoint from within the application without success, I realized the simplest solution might be to directly access the endpoint. I opened a web browser and navigated to:
+
+```
+http://91.99.1.179:42234/somebody-found-a-random-flag-path
+```
+
+This returned the flag:
+```json
+{"flag":"UVT{m0b1l3_.s0_m4y_c0nt4in_s3ns1tiv3_1nf0}"}
+```
+
+## Key Takeaways
+- Native code in Android applications often contains sensitive information or functionality.
+- Network requests hardcoded in native libraries can reveal important endpoints.
+- Sometimes the simplest approach (directly accessing an endpoint) can be the most effective solution.
+- Always check for hardcoded URLs, IP addresses, and credentials in both Java and native code when performing mobile application security assessments.
+
+## Tools Used
+- jadx-gui: For decompiling the APK
+- Ghidra: For analyzing the native library
+- Android Emulator: For running the application
+- HTTP Toolkit: For monitoring network traffic

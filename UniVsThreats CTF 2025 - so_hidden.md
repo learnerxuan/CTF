@@ -26,11 +26,51 @@ public class Utils {
 
 ![image](https://github.com/user-attachments/assets/b749f2fb-635d-4038-b142-4684b109ecce)
 
-3. Next, I imported libnative-lib.so into Ghidra and und this:
+3. Next, I imported libnative-lib.so into Ghidra and found this:
    
 ![image](https://github.com/user-attachments/assets/4440086c-cd33-4b5d-a98e-97aabec83370)
 
+```java
+undefined4 Java_com_example_uvt_1ctf_12025_Utils_getHiddenFlag(int *param_1)
 
+{
+  void *__ptr;
+  undefined4 uVar1;
+  
+  __ptr = (void *)FUN_00010a50("91.99.1.179",0xa4fa,"/somebody-found-a-random-flag-path");
+  uVar1 = (**(code **)(*param_1 + 0x29c))(param_1,__ptr);
+  free(__ptr);
+  return uVar1;
+}
+```
+
+```java
+undefined4 Java_com_example_uvt_1ctf_12025_Utils_getJoke(int *param_1)
+
+{
+  void *__ptr;
+  undefined4 uVar1;
+  
+  __ptr = (void *)FUN_00010a50("91.99.1.179",0xa4fa,"/jokes");
+  uVar1 = (**(code **)(*param_1 + 0x29c))(param_1,__ptr);
+  free(__ptr);
+  return uVar1;
+}
+```
+
+```java
+undefined4 Java_com_example_uvt_1ctf_12025_Utils_getUVTCTF(int *param_1)
+
+{
+  void *__ptr;
+  undefined4 uVar1;
+  
+  __ptr = (void *)FUN_00010a50("91.99.1.179",0xa4fa,"/uvt-ctf");
+  uVar1 = (**(code **)(*param_1 + 0x29c))(param_1,__ptr);
+  free(__ptr);
+  return uVar1;
+}
+```
 
 http://91.99.1.179:42234/somebody-found-a-random-flag-path
 {"flag":"UVT{m0b1l3_.s0_m4y_c0nt4in_s3ns1tiv3_1nf0}"}

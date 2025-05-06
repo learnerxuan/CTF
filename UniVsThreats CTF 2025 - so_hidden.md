@@ -72,17 +72,22 @@ undefined4 Java_com_example_uvt_1ctf_12025_Utils_getUVTCTF(int *param_1)
 }
 ```
 
-All three functions (**getHiddenFlag, getJoke, getUVTCTF**) follow a very similar pattern:
+All three functions (`getHiddenFlag, getJoke, getUVTCTF`) follow a very similar pattern:
 
     FUN_00010a50("91.99.1.179", 0xa4fa, "/some-path");: This line strongly suggests a call to a function at address 0x00010a50. This function takes three arguments:
     
-    A string: "91.99.1.179" - This looks like an IP address.
-    A hexadecimal value: 0xa4fa - This translates to the decimal value 42234. This is very likely a port number.
-    A string representing a path:
-    "/somebody-found-a-random-flag-path" for getHiddenFlag
-    "/jokes" for getJoke
-    "/uvt-ctf" for getUVTCTF
-    This strongly indicates that the application is making network requests to the IP address 91.99.1.179 on port 42234 using different API endpoints.
+    1. A string: "91.99.1.179" - This looks like an IP address.
+    2. A hexadecimal value: 0xa4fa - This translates to the decimal value 42234. This is very likely a port number.
+    3. A string representing a path:
+    - "/somebody-found-a-random-flag-path" for getHiddenFlag
+    - "/jokes" for getJoke
+    - "/uvt-ctf" for getUVTCTF
+This strongly indicates that the application is making network requests to the IP address 91.99.1.179 on port 42234 using different API endpoints.
+
+4. I then opened up my Android Emulator, put in the APK. At the same time, I also opened up my HTTP Toolkit and added a 42234 port. Once all were ready, I opened the APK in my virtual device. The APK showed up:
+
+![image](https://github.com/user-attachments/assets/b0155a6a-8200-45eb-b2ee-14b06b6a73b3)
+
 
 http://91.99.1.179:42234/somebody-found-a-random-flag-path
 {"flag":"UVT{m0b1l3_.s0_m4y_c0nt4in_s3ns1tiv3_1nf0}"}

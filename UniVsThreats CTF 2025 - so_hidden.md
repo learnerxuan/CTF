@@ -72,7 +72,7 @@ undefined4 Java_com_example_uvt_1ctf_12025_Utils_getUVTCTF(int *param_1)
 }
 ```
 
-All three functions ('getHiddenFlag, getJoke, getUVTCTF') follow a very similar pattern:
+All three functions (`getHiddenFlag, getJoke, getUVTCTF`) follow a very similar pattern:
 
     FUN_00010a50("91.99.1.179", 0xa4fa, "/some-path");: This line strongly suggests a call to a function at address 0x00010a50. This function takes three arguments:
     

@@ -86,8 +86,9 @@ This strongly indicates that the application is making network requests to the I
 
 4. I then opened up my Android Emulator, put in the APK. At the same time, I also opened up my HTTP Toolkit and added a 42234 port. Once all were ready, I opened the APK in my virtual device. The APK showed up:
 
-![image](https://github.com/user-attachments/assets/b0155a6a-8200-45eb-b2ee-14b06b6a73b3)
+![image](https://github.com/user-attachments/assets/00353278-3461-4e1b-a234-1f336c4a460a)
 
-
-http://91.99.1.179:42234/somebody-found-a-random-flag-path
-{"flag":"UVT{m0b1l3_.s0_m4y_c0nt4in_s3ns1tiv3_1nf0}"}
+5. Open back my HTTP Toolkit, I managed to capture both /91.99.1.179:42234/jokes and /91.99.1.179:42234/uvt-ctf addresses only. /somebody-found-a-random-flag-path is missing !!!!!!!!!
+6. I stucked at this point for quite a period. Gemini suggested me to play around with the components like clicking the text and so on, to trigger the /somebody-found-a-random-flag-path. I tried but failed.
+7. The answer is just in front of me but I just can't find it. Hmmmmmm.... Let's try to search the address on the Internet: http://91.99.1.179:42234/somebody-found-a-random-flag-path. 
+8. Oppps I got the flag ! {"flag":"UVT{m0b1l3_.s0_m4y_c0nt4in_s3ns1tiv3_1nf0}"}

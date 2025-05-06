@@ -23,5 +23,9 @@ public class Utils {
     }
 }
 ```
+
+![image](https://github.com/user-attachments/assets/b749f2fb-635d-4038-b142-4684b109ecce)
+
+
 http://91.99.1.179:42234/somebody-found-a-random-flag-path
 {"flag":"UVT{m0b1l3_.s0_m4y_c0nt4in_s3ns1tiv3_1nf0}"}

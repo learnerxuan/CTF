@@ -1,4 +1,4 @@
-# Android Pentesting CTF Writeup - so_hidden Challenge
+# UniVsThreats CTF 2025 Writeup (Mobile Category) - so_hidden Challenge
 
 ## Challenge Overview
 **Description:** "We found an APK. It is useless, or isn't it?"  

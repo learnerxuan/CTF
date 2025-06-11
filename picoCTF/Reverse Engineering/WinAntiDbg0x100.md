@@ -1,4 +1,4 @@
-# Windows Reverse Engineering - Anti-Debugging Bypass Challenge
+# WinAntiDbg0x100 Reverse Engineering - Anti-Debugging Bypass Challenge
 
 ## Challenge Information
 
@@ -176,10 +176,7 @@ if (BVar3 == 0) {
 ### Step 9: Setting Up the Bypass in x32dbg
 
 1. **Return to x32dbg**
-2. **Find address 00401602** (the TEST instruction)
-   - Press **Ctrl+G** (Go to address)
-   - Enter **401602**
-   - Press Enter
+2. **Find address ending with 1602** (the TEST instruction)
 
 ![Setting breakpoint](https://github.com/user-attachments/assets/f0f84ffc-4a53-4a78-b8d1-d25a1164a957)
 

@@ -237,10 +237,5 @@ This challenge demonstrates a fundamental anti-debugging technique used in both 
 
 The key takeaway is that software protection mechanisms can often be bypassed with the right tools and knowledge, but this requires understanding both the high-level logic and low-level implementation details.
 
-**Remember:** These techniques should only be used for legitimate purposes such as CTF competitions, security research, or analyzing malware in controlled environments.
-
----
-
 **Challenge completed successfully! 🚩**
 
-*This writeup provides a comprehensive introduction to Windows reverse engineering and anti-debugging bypass techniques suitable for beginners while maintaining technical depth for learning purposes.*

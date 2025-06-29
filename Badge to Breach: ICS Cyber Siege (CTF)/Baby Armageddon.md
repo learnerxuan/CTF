@@ -82,6 +82,8 @@ The main function simply sets up stdio buffers (disabling buffering) and calls t
 - Buffer location: `rbp-0x80` (128 bytes from base pointer)
 - **CRITICAL VULNERABILITY:** Uses `gets()` function which doesn't perform bounds checking
 
+Bounds checking is the process of verifying that data being written or accessed stays within the valid memory boundaries of a buffer, array, or variable.
+
 #### Armageddon Function (0x401216) - The Target
 ```assembly
 401216: f3 0f 1e fa          endbr64

@@ -3,7 +3,6 @@
 ## Challenge Overview
 
 **Challenge Name:** Baby Armageddon  
-**Points:** 388  
 **Category:** Binary Exploitation  
 
 **Description:**
@@ -36,7 +35,7 @@ The program appears to ask for user input but then dismisses the user with a mes
 
 ### Disassembly Analysis
 
-Looking at the objdump output, we can identify three main functions:
+Looking at the objdump output (command: "objdump -d armageddon_device"), we can identify three main functions:
 
 1. **`main` function (0x4012e3):** Entry point that sets up stdio buffers and calls `question`
 2. **`question` function (0x4012a5):** Handles user input and displays the dismissive message

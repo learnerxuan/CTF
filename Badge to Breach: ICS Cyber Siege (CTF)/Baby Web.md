@@ -137,12 +137,7 @@ Several variations of this attack can work:
    ```
 3. Forward the request
 4. Receive the flag in the response
-
-## Flag
-
-```
-fakeflag{not the flag, and i love teh ais :D}
-```
+![Screenshot 2025-06-27 223040](https://github.com/user-attachments/assets/575b3648-4837-4604-ba22-fb889fe117e0)
 
 ## Key Takeaways
 

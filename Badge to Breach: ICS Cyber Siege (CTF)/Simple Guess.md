@@ -136,80 +136,68 @@ from Crypto.Protocol.KDF import PBKDF2
 from Crypto.Hash import SHA256
 import binascii
 
-# Cryptographic parameters extracted from strings.xml
+# Extract values from the Android resources
 salt_b64 = "S7n8CyjFt28W6JOssy1OPg=="
 iv_b64 = "KF/M4Oz7SyDQOY5PWF76yw=="
 encrypted_b64 = "M4EKATajtPe4ry4Vs3W0SQNNoIdSZnDdtdAArgeVZRX1WVod+/IOHiQ8uz3XeAJW"
 
-# Decode Base64 values
+# Decode base64 values
 salt = base64.b64decode(salt_b64)
 iv = base64.b64decode(iv_b64)
 encrypted_data = base64.b64decode(encrypted_b64)
 
-print(f"Salt (hex): {binascii.hexlify(salt).decode()}")
-print(f"IV (hex): {binascii.hexlify(iv).decode()}")
-print(f"Encrypted data (hex): {binascii.hexlify(encrypted_data).decode()}")
+print(f"Salt: {binascii.hexlify(salt).decode()}")
+print(f"IV: {binascii.hexlify(iv).decode()}")
+print(f"Encrypted data: {binascii.hexlify(encrypted_data).decode()}")
+print()
 
-def try_decrypt(pin_str):
-    """
-    Attempt decryption with given 4-digit PIN
-    Returns decrypted string if successful, None otherwise
-    """
+def try_decrypt(pin):
+    """Try to decrypt with a given 4-digit PIN"""
     try:
-        # PBKDF2 key derivation matching Android implementation
-        key = PBKDF2(
-            pin_str.encode('utf-8'), 
-            salt, 
-            dkLen=32,           # 256 bits
-            count=65536,        # iterations
-            hmac_hash_module=SHA256
-        )
+        # Generate key using PBKDF2 (matching Android's PBKDF2WithHmacSHA256)
+        # Parameters: iterations=65536, key_length=256 bits (32 bytes)
+        key = PBKDF2(pin, salt, dkLen=32, count=65536, hmac_hash_module=SHA256)
         
-        # AES-CBC decryption
+        # Create cipher
         cipher = AES.new(key, AES.MODE_CBC, iv)
-        decrypted_padded = cipher.decrypt(encrypted_data)
+        
+        # Decrypt
+        decrypted = cipher.decrypt(encrypted_data)
         
         # Remove PKCS5 padding
-        pad_len = decrypted_padded[-1]
-        if 1 <= pad_len <= AES.block_size:
-            if decrypted_padded.endswith(bytes([pad_len]) * pad_len):
-                decrypted_unpadded = decrypted_padded[:-pad_len]
-                
-                try:
-                    result = decrypted_unpadded.decode('utf-8')
-                    return result
-                except UnicodeDecodeError:
-                    return None
-        
-        return None
-        
-    except Exception:
+        pad_len = decrypted[-1]
+        if pad_len <= 16:  # Valid padding length for AES
+            decrypted = decrypted[:-pad_len]
+            
+            # Try to decode as UTF-8
+            result = decrypted.decode('utf-8')
+            return result
+    except:
         return None
 
-# Brute force attack
-print("\nStarting brute force attack (0000-9999)...")
+# Brute force all 4-digit combinations
+print("Starting brute force attack...")
+print("This may take a few minutes...")
+print()
 
-found_pin = None
-decrypted_message = None
-
+found = False
 for i in range(10000):
     pin = f"{i:04d}"  # Format as 4-digit string with leading zeros
     
     if i % 1000 == 0:
-        print(f"Trying PIN range: {pin} - {min(i + 999, 9999):04d}...")
+        print(f"Trying PIN: {pin}...")
     
     result = try_decrypt(pin)
-    if result and "Thank You" in result:
-        found_pin = pin
-        decrypted_message = result
+    if result and result.isprintable():
+        print(f"\n🎉 SUCCESS! 🎉")
+        print(f"PIN: {pin}")
+        print(f"Decrypted message: {result}")
+        found = True
         break
 
-if found_pin:
-    print(f"\n🎉 SUCCESS! 🎉")
-    print(f"Found PIN: {found_pin}")
-    print(f"Decrypted message: {decrypted_message}")
-else:
+if not found:
     print("No valid PIN found in range 0000-9999")
+    print("The encrypted data might require a different approach.")
 ```
 
 ### Execution Results

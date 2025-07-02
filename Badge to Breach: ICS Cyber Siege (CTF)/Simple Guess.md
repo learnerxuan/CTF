@@ -9,47 +9,11 @@
 
 The challenge presents a simple Android application with a single input field asking for a "code". The goal is to reverse engineer the APK to find the correct code that unlocks the flag.
 
-## Initial Analysis
-
-### APK Acquisition and Setup
-
-First, we need to extract the APK from the Android emulator and prepare it for analysis.
-
-**List connected devices:**
-```bash
-$ adb devices
-List of devices attached
-emulator-5554   device
-```
-
-**Find the package name:**
-```bash
-$ adb shell pm list packages | grep simpleguess
-package:com.example.simpleguess
-```
-
-**Get APK path and extract:**
-```bash
-$ adb shell pm path com.example.simpleguess
-package:/data/app/~~_6cNRH5twMPrEj7MI4TgDA==/com.example.simpleguess-E8sQBagfGDDll02ngaw43Q==/base.apk
-
-$ adb pull /data/app/~~_6cNRH5twMPrEj7MI4TgDA==/com.example.simpleguess-E8sQBagfGDDll02ngaw43Q==/base.apk base.apk
-```
-
-### Decompilation
-
-**Decompile using apktool:**
-```bash
-$ apktool d base.apk -o decompiled_simpleguess
-```
-
-This extracts the application resources and converts the DEX bytecode to Smali assembly language for analysis.
-
 ## Static Analysis
 
 ### Application Structure
 
-The decompiled APK reveals the standard Android application structure:
+By opening the APK using jadx-gui, the decompiled APK reveals the standard Android application structure:
 - `AndroidManifest.xml` - Application configuration
 - `res/values/strings.xml` - String resources
 - `smali_classes2/com/example/simpleguess/MainActivity.smali` - Main application logic

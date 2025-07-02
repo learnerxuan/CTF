@@ -127,7 +127,7 @@ The vulnerability allows for a straightforward offline brute force attack:
 4. Attempt decryption of the ciphertext
 5. Check if decrypted plaintext contains "Thank You"
 
-### Exploit Implementation
+### Exploit Implementation (Script from Claude AI)
 
 ```python
 import base64

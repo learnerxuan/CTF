@@ -215,23 +215,7 @@ else:
 ### Execution Results
 
 Running the brute force script:
-
-```bash
-$ python3 exploit.py
-Salt (hex): 4bb9fc0b28c5b76f16e893acb32d4e3e
-IV (hex): 285fcce0ecfb4b20d0398e4f585efacb
-Encrypted data (hex): 33810a0136a3b4f7b8af2e15b375b449034da08752667...
-
-Starting brute force attack (0000-9999)...
-Trying PIN range: 0000 - 0999...
-Trying PIN range: 1000 - 1999...
-Trying PIN range: 2000 - 2999...
-...
-
-🎉 SUCCESS! 🎉
-Found PIN: [REDACTED]
-Decrypted message: Thank You [FLAG_CONTENT]
-```
+![Screenshot 2025-06-28 003433](https://github.com/user-attachments/assets/31a614b8-85e2-43e2-97e8-75ad82cd5427)
 
 The script successfully identifies the correct 4-digit PIN through exhaustive search.
 

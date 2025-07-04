@@ -1,7 +1,6 @@
 # Simple Guess - CTF Writeup
 
 ## Challenge Overview
-**Challenge Name:** Simple Guess  
 **Category:** Mobile Reverse Engineering, Cryptography  
 
 **Description:**

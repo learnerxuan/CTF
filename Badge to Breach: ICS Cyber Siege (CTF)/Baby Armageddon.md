@@ -1,8 +1,6 @@
 # Baby Armageddon - CTF Writeup
 
 ## Challenge Overview
-
-**Challenge Name:** Baby Armageddon  
 **Category:** Binary Exploitation  
 
 **Description:**

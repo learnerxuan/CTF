@@ -226,5 +226,3 @@ This challenge serves as an excellent introduction to binary exploitation, showi
 - Enable modern security features (stack canaries, ASLR, NX)
 - Validate input lengths before processing
 - Regular security audits can catch such vulnerabilities
-
-**Flag obtained through successful exploitation of buffer overflow vulnerability.**

@@ -3,7 +3,6 @@
 ## Challenge Information
 - **Name:** FactCheck
 - **Category:** Reverse Engineering
-- **Points:** [Points value]
 - **Description:** This binary is putting together some important piece of information... Can you uncover that information? Examine this file. Do you understand its inner workings?
 
 ## Table of Contents

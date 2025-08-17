@@ -2,7 +2,6 @@
 
 **Challenge:** EZ_PWN  
 **Category:** Binary Exploitation / PWN  
-**Target:** `nc 203.154.91.221 5225`  
 **Flag:** `flag{16ee4ab95cf774231c94fcce1a81c586}`  
 
 ## Challenge Overview

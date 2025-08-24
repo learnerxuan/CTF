@@ -142,9 +142,3 @@ print(f"Flag: {flag}")
 ## Solution
 
 **Flag:** `picoCTF{ASCII_IS_EASY_3CF4BFAD}`
-
-
-- **Stack frame analysis** - understanding rbp offsets helps locate local variables
-- **Function calling conventions** - knowing how parameters are passed helps understand program flow
-
-This challenge serves as an excellent introduction to reverse engineering, teaching fundamental concepts while remaining accessible to beginners.

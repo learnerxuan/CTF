@@ -1,0 +1,106 @@
+> why kist_account does not trigger ?
+
+● Great question! Let me explain why list_accounts() doesn't trigger the vulnerability.
+
+  Looking at list_accounts() Function:
+
+  void list_accounts() {
+      printf("\n=== Active Accounts ===\n");
+      for (int i = 0; i < account_count; i++) {
+          if (accounts[i]) {
+              printf("ID %d: %s (Balance: $%lu)\n", i, accounts[i]->name, accounts[i]->balance);
+          }
+      }
+      printf("======================\n\n");
+  }
+
+  Key Difference: NO Function Pointer Calls!
+
+  list_accounts() - SAFE:
+
+  printf("ID %d: %s (Balance: $%lu)\n", i, accounts[i]->name, accounts[i]->balance);
+  //                                      ↑ Direct field access
+  //                                      ↑ No function call
+
+  This directly accesses the struct fields:
+  - accounts[i]->name - reads memory directly
+  - accounts[i]->balance - reads memory directly
+  - No function pointers are called!
+
+  view_account() - VULNERABLE:
+
+  accounts[idx]->print_balance(accounts[idx]);
+  //             ↑ Function pointer call!
+  //             ↑ Can be hijacked!
+
+  This calls whatever function the pointer points to.
+
+  Visual Comparison:
+
+  Safe Operations (list_accounts):
+
+  accounts[0] ──→ ┌─────────────────────┐
+                  │ name: "Evil"        │ ← Read directly
+                  │ balance: 1337       │ ← Read directly
+                  │ print_balance: →win │ ← NOT USED
+                  │ transfer_funds: →win│ ← NOT USED
+                  └─────────────────────┘
+
+  Dangerous Operations (view_account):
+
+  accounts[0] ──→ ┌─────────────────────┐
+                  │ name: "Evil"        │
+                  │ balance: 1337       │
+                  │ print_balance: →win │ ← CALLED!
+                  │ transfer_funds: →win│
+                  └─────────────────────┘
+                                    ↓
+                              Jumps to win_function()
+
+  Which Functions Are Vulnerable?
+
+  ✅ VULNERABLE (call function pointers):
+
+  1. view_account() - calls print_balance()
+  2. make_transfer() - calls transfer_funds()
+
+  ❌ SAFE (no function calls):
+
+  1. list_accounts() - only reads fields directly
+  2. delete_account() - only reads name, then frees memory
+  3. create_account() - sets up the struct
+
+  In Ghidra Terms:
+
+  Vulnerable pattern to look for:
+  // This pattern is dangerous:
+  (**(code **)(struct_ptr + offset))(parameters);
+
+  Safe pattern:
+  // This pattern is safe:
+  printf("%s", struct_ptr + offset);  // Just reading memory
+
+  Why This Matters for the Exploit:
+
+  You MUST trigger a function that calls the hijacked function pointer:
+
+  Working Exploit Sequence:
+
+  1. Create malicious account → Sets up hijacked pointers
+  2. View account (option 3)  → Calls hijacked print_balance → WIN!
+     OR
+     Transfer funds (option 4) → Calls hijacked transfer_funds → WIN!
+
+  Non-Working Sequence:
+
+  1. Create malicious account → Sets up hijacked pointers
+  2. List accounts (option 5) → Only reads data directly → Nothing happens
+
+  The Bottom Line:
+
+  list_accounts() is safe because it treats the struct as pure data - it just reads and displays the values. The    
+   vulnerability only exists when the program tries to EXECUTE the function pointers, which only happens in
+  view_account() and make_transfer().
+
+  To exploit: Create malicious account, then use option 3 (view) or option 4 (transfer) to trigger the hijacked     
+  function call!

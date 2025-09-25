@@ -1,0 +1,105 @@
+> the thing i dont get it is, u says the struct is 56 bytes right, and the name entered only contains 4 bytes 
+  others will be zeroed out, but i thought we still have balance, and the other two functions which cntain 8 bytes
+   each ? they will also be zero out ?
+
+● Excellent question! You've spotted something really important. Let me clarify what gets zeroed out vs what
+  gets set.
+
+  What Actually Happens with "Bob" Input:
+
+  Step 1: Memory After read()
+
+  // User types "Bob\n" (4 bytes)
+  read(0, new_acc, sizeof(struct account));  // reads 4 bytes
+
+  Memory state after read():
+  ┌─────────────┬─────────┬───────────────┬─────────────────┐
+  │ name        │ balance │ print_balance │ transfer_funds  │
+  │ "Bob\n"     │ ??????? │ ????????????? │ ??????????????? │
+  │ (4 bytes)   │ (8 ???) │ (8 ???)       │ (8 ???)         │
+  └─────────────┴─────────┴───────────────┴─────────────────┘
+
+  The ? marks represent garbage data - whatever was in memory before malloc!
+
+  Step 2: Zero Out the Rest
+
+  // Zero out the rest of the structure
+  memset((char*)new_acc + bytes_read, 0, sizeof(struct account) - bytes_read);
+  //     ^starting after "Bob\n"      ^zero it  ^52 remaining bytes
+
+  Memory state after memset():
+  ┌─────────────┬─────────┬───────────────┬─────────────────┐
+  │ name        │ balance │ print_balance │ transfer_funds  │
+  │ "Bob\0"     │ 0000000 │ 0000000000000 │ 0000000000000   │
+  │ (32 bytes)  │ (8)     │ (8)           │ (8)             │
+  └─────────────┴─────────┴───────────────┴─────────────────┘
+
+  Step 3: Set Proper Values
+
+  // Set default values for normal operation
+  new_acc->balance = 1000;                    // Overwrites the 0
+  new_acc->print_balance = show_balance;      // Overwrites the 0
+  new_acc->transfer_funds = transfer_money;   // Overwrites the 0
+
+  Final memory state:
+  ┌─────────────┬─────────┬───────────────┬─────────────────┐
+  │ name        │ balance │ print_balance │ transfer_funds  │
+  │ "Bob\0..."  │ 1000    │ →show_balance │ →transfer_money │
+  │ (32 bytes)  │ (8)     │ (8)           │ (8)             │
+  └─────────────┴─────────┴───────────────┴─────────────────┘
+
+  So You're Right!
+
+  Yes, the balance and function pointers get zeroed out first, then immediately set to proper values!
+
+  Why This Matters for the Exploit:
+
+  When attacker sends exactly 56 bytes, the code does this instead:
+
+  Step 1: Memory After read() (56 bytes)
+
+  // Attacker sends 56 bytes of crafted data
+  read(0, new_acc, sizeof(struct account));  // reads all 56 bytes
+
+  Memory state:
+  ┌─────────────┬─────────┬───────────────┬─────────────────┐
+  │ name        │ balance │ print_balance │ transfer_funds  │
+  │ "Evil..."   │ 1337    │ →admin_access │ →admin_access   │
+  │ (32 bytes)  │ (8)     │ (8)           │ (8)             │
+  └─────────────┴─────────┴───────────────┴─────────────────┘
+
+  Step 2: NO memset() - Skip to Checks
+
+  else {
+      // Handle full-size input (exploitation case)
+      // Only set function pointers if they're NULL (preserves attacker control)
+      if (new_acc->print_balance == NULL) {  // →admin_access is NOT NULL
+          new_acc->print_balance = show_balance;  // This doesn't execute!
+      }
+      if (new_acc->transfer_funds == NULL) {  // →admin_access is NOT NULL
+          new_acc->transfer_funds = transfer_money;  // This doesn't execute!
+      }
+  }
+
+  Final memory state (unchanged):
+  ┌─────────────┬─────────┬───────────────┬─────────────────┐
+  │ name        │ balance │ print_balance │ transfer_funds  │
+  │ "Evil..."   │ 1337    │ →admin_access │ →admin_access   │
+  │ (32 bytes)  │ (8)     │ (8)           │ (8)             │
+  └─────────────┴─────────┴───────────────┴─────────────────┘
+
+  The Key Difference:
+
+  Normal input (< 56 bytes):
+  1. Read partial data
+  2. Zero out everything else
+  3. Set proper values (overwrites zeros)
+
+  Attack input (= 56 bytes):
+  1. Read all data (attacker controlled)
+  2. Skip zeroing
+  3. Only set NULL pointers (attacker's aren't NULL, so unchanged)
+
+  You were absolutely correct - with normal input, ALL fields (including balance and function pointers) get
+  zeroed first, then set to proper values. The attack works because it bypasses both the zeroing AND the
+  overwriting steps!

@@ -918,8 +918,4 @@ void delete_secure(uint index) {
 
 **Flag:** `sun{h3ap_3xpl01t4t10n_m4st3r_0f_th3_0rb1t}`
 
----
 
-*Writeup by: [Your Name]*  
-*Date: October 2025*  
-*CTF: SunshineCTF 2025*

@@ -885,7 +885,7 @@ $ python3 exploit.py
 [*] Triggering return to win+1...
 [+] Getting flag...
 [*] Switching to interactive mode
-Securinets{...flag_here...}
+Securinets{my_zip_doesnt_zip}
 ```
 
 ### Alternative: Manual Exploitation
@@ -1048,6 +1048,6 @@ int compress(char *input, int len, char *output, int max_out) {
 
 ---
 
-**Flag:** `Securinets{...}`
+**Flag:** `Securinets{my_zip_doesnt_zip}`
 
 **Author's Note:** This challenge is an excellent introduction to buffer overflows and ret2win exploits. The key insight is understanding that compression algorithms can be exploited when they expand data, and that stack alignment matters in modern x86-64 exploitation.

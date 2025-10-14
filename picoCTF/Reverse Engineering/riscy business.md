@@ -986,48 +986,7 @@ info("GDB attached to QEMU!")
 gdb.sendlineafter(prompt, b"b *0x101c0")
 ```
 
-### Helper Functions
-
-```python
-def wait_prompt():
-    """Wait for GDB prompt"""
-    gdb.recvuntil(prompt)
-
-def send_guess(guess):
-    """Send a guess to the program"""
-    # Continue execution in GDB
-    gdb.sendline(b"c")
-    
-    # Wait for input prompt in QEMU
-    qemu.recvuntil(b"> ")
-    
-    # Send our guess
-    qemu.sendline(guess)
-    
-    # Wait for breakpoint to hit
-    gdb.recvuntil(b"BREAKPOINT")
-
-def dump_register(reg: bytes) -> bytes:
-    """Read and parse register contents"""
-    # Clear any pending output
-    gdb.clean()
-    
-    # Use GEF command to dump register as hex
-    # Format: pf --lang hex -l 52 $register
-    gdb.sendline(b"pf --lang hex -l 52 $" + reg)
-    
-    # Read the output
-    output = gdb.recvuntil(prompt)
-    
-    # Extract just the hex string (first line)
-    hex_data = output[0:output.index(b"\n")]
-    
-    # Convert hex to bytes
-    return unhex(hex_data)
-```
-
-### Main Exploit Loop
-
+### Complete Exploit Script
 ```python
 #!/usr/bin/env python3
 import string
@@ -1112,83 +1071,6 @@ success(f"FLAG: {flag.decode()}")
 qemu.kill()
 gdb.kill()
 ```
-
-### Complete Exploit Script
-
-Here's the full script combined:
-
-```python
-#!/usr/bin/env python3
-"""
-Exploit for riscy business challenge
-Uses character-by-character brute force via GDB automation
-"""
-import string
-from pwn import *
-
-# Set up
-chars = string.punctuation + string.digits + string.ascii_lowercase + string.ascii_uppercase
-flag_known = b"picoCTF{"
-
-# Helper functions
-def wait_prompt():
-    gdb.recvuntil(prompt)
-
-def send_guess(guess):
-    gdb.sendline(b"c")
-    qemu.recvuntil(b"> ")
-    qemu.sendline(guess)
-    gdb.recvuntil(b"BREAKPOINT")
-
-def dump_register(reg: bytes) -> bytes:
-    gdb.clean()
-    gdb.sendline(b"pf --lang hex -l 52 $" + reg)
-    output = gdb.recvuntil(prompt)
-    hex_data = output[0:output.index(b"\n")]
-    return unhex(hex_data)
-
-# Main
-qemu = process(["qemu-riscv64", "-g", "1234", "./riscy"])
-gdb = process(["gdb-multiarch", "-q"])
-prompt = b"gef➤"
-
-gdb.sendlineafter(prompt, b"gef-remote localhost 1234 --qemu-user --qemu-binary ./riscy")
-info("GDB attached to QEMU!")
-
-gdb.sendlineafter(prompt, b"b *0x101c0")
-wait_prompt()
-
-# Get target
-send_guess(flag_known)
-target = dump_register(b"a5")
-info(f"Target: {target.hex()}")
-
-# Brute force
-info("Starting brute force...")
-with log.progress("Flag") as progress:
-    for i in range(len(flag_known), 52):
-        found = False
-        for c in chars:
-            guess = flag_known + c.encode("ascii")
-            gdb.sendline(b"set $pc = 0x10112")
-            wait_prompt()
-            send_guess(guess)
-            our_encrypted = dump_register(b"s1")
-            
-            if our_encrypted[:i + 1] == target[:i + 1]:
-                found = True
-                flag_known = guess
-                progress.status(flag_known.decode())
-                break
-        
-        if not found:
-            warning(f"Character {i} not found!")
-            break
-
-success(f"FLAG: {flag_known.decode()}")
-```
-
----
 
 ## Getting the Flag
 

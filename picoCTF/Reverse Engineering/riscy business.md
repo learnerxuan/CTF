@@ -1029,52 +1029,88 @@ def dump_register(reg: bytes) -> bytes:
 ### Main Exploit Loop
 
 ```python
-# First, get the target encrypted flag
-wait_prompt()
-send_guess(flag_known)
+#!/usr/bin/env python3
+import string
+from pwn import *
 
-# Read target from register a5
-target = dump_register(b"a5")
-info(f"Target encrypted flag: {target.hex()}")
+# start qemu
+gdb_port = "9000"
+qemu = process(["qemu-riscv64-static", "-g", gdb_port, "./riscy"])
 
-# Now brute force character by character
-info("Starting character-by-character brute force...")
+# start gdb (use -nx to not load .gdbinit which has GEF)
+gdb = process(["gdb-multiarch", "-q", "-nx"])
+prompt = b"(gdb) "
 
-with log.progress("Flag") as progress:
-    for i in range(len(flag_known), 52):  # 52 total bytes in flag
+# Disable colors and pagination
+gdb.sendlineafter(prompt, b"set style enabled off")
+gdb.sendlineafter(prompt, b"set print repeats 0")
+gdb.sendlineafter(prompt, b"set pagination off")
+gdb.sendlineafter(prompt, b"file ./riscy")
+gdb.sendlineafter(prompt, f"target remote localhost:{gdb_port}".encode("ascii"))
+gdb.sendlineafter(prompt, b"b *0x101c0")
+
+def wait_prompt():
+    gdb.recvuntil(prompt)
+
+def send_guess(g):
+    gdb.sendline(b"c")
+    qemu.recvuntil(b"> ")
+    qemu.sendline(g)
+    gdb.recvuntil(b"Breakpoint")
+
+def dump_reg(reg: bytes) -> bytes:
+    gdb.clean()
+    gdb.sendline(b"x/65xb $" + reg)
+    val = gdb.recvuntil(prompt)
+    hex_data = b""
+    for line in val.split(b"\n"):
+        if not b":" in line:
+            break
+        line = line.split(b":", 1)[1]
+        line = line.replace(b"\t0x", b"").replace(b"\t", b"")
+        hex_data += line
+    return unhex(hex_data)
+
+# Character set for brute forcing (put common characters first for speed)
+chars = string.ascii_lowercase + string.ascii_uppercase + string.digits + string.punctuation
+
+# Initial known flag
+flag = b"picoCTF{"
+
+# Get initial guess to get the encrypted expected value
+send_guess(flag)
+wanted = dump_reg(b"a5")
+info(f"Encrypted flag: {wanted}")
+
+# Bruteforce character by character
+with log.progress("Flag") as p:
+    for i in range(len(flag), 52):
         found = False
-        
         for c in chars:
-            # Build guess with this character
-            guess = flag_known + c.encode("ascii")
-            
-            # Reset program to entry point (faster than restarting)
+            guess = flag + c.encode("ascii")
+
+            # Reset PC to beginning of check function
             gdb.sendline(b"set $pc = 0x10112")
             wait_prompt()
-            
-            # Send guess and let it encrypt
             send_guess(guess)
-            
-            # Read our encrypted input from register s1
-            our_encrypted = dump_register(b"s1")
-            
-            # Check if encrypted bytes match up to current position
-            if our_encrypted[:i + 1] == target[:i + 1]:
-                # Found the right character!
+
+            # Dump register with our input
+            input_enc = dump_reg(b"s1")
+
+            # Check if characters match up to current position
+            if input_enc[:i + 1] == wanted[:i + 1]:
                 found = True
-                flag_known = guess
-                progress.status(flag_known.decode())
+                flag = guess
+                p.status(flag.decode())
                 break
-        
+
         if not found:
-            warning(f"Character {i} not found!")
-            break
-        
-        # Stop if we found the closing brace
-        if c == '}':
+            warning("Character not found!")
             break
 
-success(f"FLAG: {flag_known.decode()}")
+success(f"FLAG: {flag.decode()}")
+qemu.kill()
+gdb.kill()
 ```
 
 ### Complete Exploit Script

@@ -3,7 +3,6 @@
 **Challenge:** SMØLLM  
 **Category:** Binary Exploitation / Pwn  
 **Difficulty:** Medium  
-**Points:** [Your points here]  
 **Flag:** `flag{w3_4re_ou7_0f_7ok3n5,sorry:171cec579a6ccf7ab7eba1b8cd2ee12c}`
 
 ---
@@ -1224,17 +1223,3 @@ The key insight was understanding how to abuse the token system - first to leak 
 
 **Flag:** `flag{w3_4re_ou7_0f_7ok3n5,sorry:171cec579a6ccf7ab7eba1b8cd2ee12c}`
 
----
-
-## Acknowledgments
-
-This writeup documents my learning journey through this challenge, including all the pitfalls, confusion, and debugging along the way. Special thanks to the challenge author for creating such an interesting problem that required deep understanding of multiple exploitation techniques.
-
-**Author:** [Your Name]  
-**Date:** [Date]  
-**CTF:** hack.lu CTF  
-**Challenge:** SMØLLM
-
----
-
-*This writeup is for educational purposes only. Always practice responsible disclosure and never use these techniques against systems without explicit permission.*

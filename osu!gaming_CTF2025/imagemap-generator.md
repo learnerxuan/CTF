@@ -4,7 +4,7 @@
 > **Category:** PWN  
 > **Difficulty:** Medium  
 > **Flag:** `osu{i_st1ll_d0nt_get_imagemaps}`  
-> **Author's Note:** This writeup includes all beginner confusions and questions for future reference.
+
 
 ---
 

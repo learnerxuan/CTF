@@ -1240,8 +1240,3 @@ The two-stage attack (leak + exploit) is a common pattern in modern PWN challeng
 
 **Final Flag:** `osu{i_st1ll_d0nt_get_imagemaps}`
 
----
-
-*Written by: [Your Name]*  
-*Date: [Date]*  
-*Challenge: osuCTF 2025 - imagemap-generator*

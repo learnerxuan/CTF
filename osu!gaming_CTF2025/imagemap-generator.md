@@ -1081,7 +1081,7 @@ log.success(f"Leaked: {hex(leaked)}")
 log.success(f"Libc base: {hex(libc_base)}")
 
 # Validate
-if not (0x7f0000000000 < libc_base < 0x800000000000):
+if not (0x700000000000 < libc_base < 0x800000000000):
     log.error("Invalid libc base!")
     exit(1)
 

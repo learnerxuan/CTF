@@ -385,6 +385,3 @@ MCC{RoP_3@zy_Pe4$y}
 ---
 
 **Flag:** `MCC{RoP_3@zy_Pe4$y}`
-
-*Writeup by: [Your Name]*  
-*Date: December 2024*

@@ -1460,3 +1460,5 @@ readelf -S chall | grep -E 'bss|data'
 readelf -s chall | grep stdin
 objdump -M intel -d chall | grep -A5 "syscall"
 ```
+
+Reference: https://leo1.cc/posts/writeups/seccon25-unserialize/

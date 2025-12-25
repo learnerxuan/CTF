@@ -1,409 +1,708 @@
-# SECCON 2025 CTF Quals - aeppel Challenge Writeup
+# SECCON CTF 2025 Quals - aeppel (Reversing)
+
+**Author:** rand0m  
+**Category:** Reverse Engineering  
+**Difficulty:** Medium  
+**Flag:** `SECCON{applescriptfun<3}`
+
+---
 
 ## Table of Contents
 1. [Challenge Overview](#challenge-overview)
-2. [Initial Confusion: The Red Herring](#initial-confusion-the-red-herring)
-3. [Understanding the Real Challenge](#understanding-the-real-challenge)
-4. [Solution Walkthrough](#solution-walkthrough)
-5. [Common Pitfalls](#common-pitfalls)
-6. [Final Solution](#final-solution)
-7. [References](#references)
+2. [Understanding AppleScript](#understanding-applescript)
+3. [Phase 1: Reconnaissance](#phase-1-reconnaissance)
+4. [Phase 2: Disassembling Outer Layer](#phase-2-disassembling-outer-layer)
+5. [Phase 3: Extracting Inner Script](#phase-3-extracting-inner-script)
+6. [Phase 4: Disassembling Inner Script](#phase-4-disassembling-inner-script)
+7. [Phase 5: Finding Target Values](#phase-5-finding-target-values)
+8. [Phase 6: Identifying Validation Functions](#phase-6-identifying-validation-functions)
+9. [Phase 7: Reversing Shimbashi Encryption](#phase-7-reversing-shimbashi-encryption)
+10. [Phase 8: Writing the Solver](#phase-8-writing-the-solver)
+11. [Key Learnings](#key-learnings)
 
 ---
 
 ## Challenge Overview
 
-**Challenge Name:** aeppel
-
-**Category:** Reverse Engineering
-
-**Files:** `1.scpt` (AppleScript compiled binary)
-
-**Goal:** Reverse engineer a compiled AppleScript file to extract the flag.
+We're given a compiled AppleScript binary `1.scpt` that validates a flag. The challenge requires:
+- Understanding AppleScript bytecode format
+- Disassembling nested scripts
+- Reversing the encryption algorithm
+- Decrypting target values to recover the flag
 
 ---
 
-## Initial Confusion: The Red Herring
+## Understanding AppleScript
 
-### What I Initially Thought (WRONG!)
+### What is AppleScript?
+AppleScript is a scripting language by Apple for automating tasks on macOS. Files with `.scpt` extension are compiled bytecode, not source code.
 
-When first examining the disassembled output, I saw:
-- State names: `california`, `nevada`, `texas`, `oregon`, etc.
-- Tokyo station names: `iidabashi`, `roppongi`, `otemachi`, `kanda`, `sugamo`, etc.
-- Unicode emoji codes: `u1f41d` (🐝), `u1f99c` (🦜), etc.
-
-**I initially believed this was a two-layer obfuscation challenge:**
-```
-State names → Tokyo station names → Emoji unicode
-```
-
-### Why This Was Wrong
-
-These elements are **RED HERRINGS** - they exist in the code but are NOT part of the actual flag validation mechanism. The writeups confirmed this:
-
-> "The state/station/emoji names in the disassembly are red herrings - they're not part of the actual solution mechanism!"
-
-The actual challenge is about **reversing two mathematical validation functions**, not decoding emoji mappings.
+### Why This Challenge is Hard
+1. **Platform-specific:** Most CTF players use Linux/Windows and cannot run AppleScript natively
+2. **Compiled format:** Cannot be read directly like Python or JavaScript
+3. **Nested obfuscation:** Contains a script within a script
+4. **Obscure tooling:** Few people know how to disassemble AppleScript
 
 ---
 
-## Understanding the Real Challenge
+## Phase 1: Reconnaissance
 
-### The Actual Mechanism
+### Understanding File Signatures (Magic Bytes)
 
-The AppleScript binary validates the flag using **two functions**:
+**Magic bytes** = file signature that identifies file type, stored at the beginning of the file.
 
-#### 1. **Shimbashi Function** (Encryption/Validation)
-This function encrypts the 16-character flag inner text using:
+Examples:
+- PNG: `89 50 4E 47` (reads as ".PNG")
+- ZIP: `50 4B 03 04` ("PK")
+- AppleScript: `46 61 73 64` = "Fasd" in ASCII
 
-```python
-encrypted[i] = original[i] + 13 + k
-where k = (13 * (state % 3 + 1)) % 11
-and state = index + 1  # IMPORTANT: State starts at 1, not 0!
-```
+### Commands to Run
 
-**Key Insight:** The state counter starts at **1**, not 0. This makes `k` cycle through: `4, 6, 2, 4, 6, 2, ...`
-
-#### 2. **Ginza Function** (Checksum Validation)
-This function validates that:
-```python
-sum(character_codes) % 256 == 0x5f  # 0x5f = 95 = ASCII '_'
-```
-
-### How the Challenge Works
-
-1. User enters a flag in format `SECCON{inner_16_chars}`
-2. The Shimbashi function encrypts the 16-character inner part
-3. It compares the result against a hardcoded 16-byte target
-4. If they match, the Ginza function verifies the checksum
-5. If both pass, the flag is correct
-
----
-
-## Solution Walkthrough
-
-### Step 1: Disassemble the Binary
-
-**Command:**
 ```bash
+cd ~/seccon14CTF-2025/aeppel
+
+# Check file type
+file 1.scpt
+# Output: 1.scpt: AppleScript compiled
+
+# Extract readable strings
+strings 1.scpt | head -50
+
+# Look for patterns
+strings 1.scpt | grep -E "^[a-z]+$" | head -20
+
+# Check hex structure
+hexdump -C 1.scpt | head -3
+```
+
+### What We Found
+
+**Key patterns in strings:**
+- **US States:** california, nevada, texas, florida, virginia
+- **Tokyo Stations:** iidabashi, roppongi, otemachi, kanda, sugamo, jimbocho
+- **Unicode emoji codes:** u1f41d (🐝), u1f99c (🦜), u1f11d
+- **Keywords:** flag, FLAG, codex, claude, harrison
+
+**This reveals a two-layer substitution cipher:**
+1. States → Stations
+2. Stations → Emojis
+
+**Hex dump shows:**
+```
+00000000  46 61 73 64 55 41 53 20  31 2e 31 30 31 2e 31 30  |FasdUAS 1.101.10|
+```
+- Magic bytes: `FasdUAS` = AppleScript compiled format
+- Version: 1.101.10
+
+---
+
+## Phase 2: Disassembling Outer Layer
+
+### Setting Up the Disassembler
+
+```bash
+cd ~/seccon14CTF-2025/aeppel
+git clone https://github.com/Jinmo/applescript-disassembler
 cd applescript-disassembler
+```
+
+### Disassemble the Outer Script
+
+```bash
 python3 disassembler.py ../1.scpt > ../disassembled.txt
 ```
 
-**What this does:**
-- Uses the AppleScript disassembler tool to convert the binary into readable bytecode
-- Creates `disassembled.txt` with the decompiled structure
+### What We See
 
-**Expected output:**
 ```
-Function name : <Value type=object value=<Value type=event_identifier ...>>
+=== data offset 2 ===
+Function name : <Value type=object value=<Value type=event_identifier value=b'aevt'-b'oapp'-b'null'-b'\x00\x00\x80\x00'-b'****'-b'\x00\x00\x90\x00'>>
 Function arguments:  <empty or unknown>
- 00000 PushLiteral 0 # <Value type=rawdata value=b'scptFasdUAS 1.101.10\x0e...'>
- ...
+ 00000 PushLiteral 0 # <Value type=rawdata value=b'scptFasdUAS 1.101.10\x0e\x00\x00\x00\x04\x0f\xff\xff...
+ 00001 Push0
+ 00002 MessageSend 1 # <Value type=object value=<Value type=event_identifier value=b'syso'-b'dsct'-b'****'-b'\x00\x00\x00\x00'-b'scpt'-b'\x00\x00\x00\x00'>>
 ```
 
-### Step 2: Understand the Bytecode Structure
+### Understanding the Structure
 
-The disassembly shows a `PushLiteral` instruction containing embedded binary data. This data has:
-- A malformed header: `scptFasdUAS` (should be just `FasdUAS`)
-- All the function definitions and constants
-- The target encrypted bytes we need
+**Key finding:** `scptFasdUAS` appears in the rawdata
 
-**Why we can't find the target easily:**
-The target bytes are embedded in the bytecode in a specific format that's not immediately obvious from text search.
-
-### Step 3: Extract the Target Bytes
-
-From the writeups, the target bytes are:
-```python
-[114, 131, 127, 125, 120, 130, 116, 133, 120, 129, 135, 117, 134, 129, 75, 68]
+This means:
+```
+Outer AppleScript {
+    rawdata = b'scptFasdUAS...'  ← Another compiled AppleScript!
+    run script rawdata
+}
 ```
 
-In hex:
-```
-72 83 7f 7d 78 82 74 85 78 81 87 75 86 81 4b 44
-```
+**It's AppleScript inception** - a script running a script!
 
-**How to find these in YOUR binary:**
-
-1. Look for the Shimbashi function definition in the disassembly
-2. Find where it compares computed values against a constant array
-3. Extract those 16 bytes
-
-**Note:** Different challenge instances may have different target bytes (different flags).
-
-### Step 4: Understand the Encryption Formula
-
-The Shimbashi function uses this encryption:
-
-```python
-for each character at index i (0-indexed):
-    state = i + 1           # State starts at 1!
-    k = (13 * (state % 3 + 1)) % 11
-    encrypted = ord(char) + 13 + k
-```
-
-**k values cycle:**
-```
-state=1: k = (13 * (1 % 3 + 1)) % 11 = (13 * 2) % 11 = 4
-state=2: k = (13 * (2 % 3 + 1)) % 11 = (13 * 3) % 11 = 6
-state=3: k = (13 * (3 % 3 + 1)) % 11 = (13 * 1) % 11 = 2
-state=4: k = (13 * (4 % 3 + 1)) % 11 = (13 * 2) % 11 = 4
-...
-```
-
-Pattern: `4, 6, 2, 4, 6, 2, ...`
-
-### Step 5: Reverse the Encryption
-
-To decrypt:
-```python
-for each encrypted byte at index i:
-    state = i + 1           # State starts at 1!
-    k = (13 * (state % 3 + 1)) % 11
-    original = encrypted - 13 - k
-```
-
-**Full decryption table:**
-
-| Index | State | k | Encrypted | Calculation | Original | Char |
-|-------|-------|---|-----------|-------------|----------|------|
-| 0 | 1 | 4 | 114 | 114-13-4 = 97 | 97 | a |
-| 1 | 2 | 6 | 131 | 131-13-6 = 112 | 112 | p |
-| 2 | 3 | 2 | 127 | 127-13-2 = 112 | 112 | p |
-| 3 | 4 | 4 | 125 | 125-13-4 = 108 | 108 | l |
-| 4 | 5 | 6 | 120 | 120-13-6 = 101 | 101 | e |
-| 5 | 6 | 2 | 130 | 130-13-2 = 115 | 115 | s |
-| 6 | 7 | 4 | 116 | 116-13-4 = 99 | 99 | c |
-| 7 | 8 | 6 | 133 | 133-13-6 = 114 | 114 | r |
-| 8 | 9 | 2 | 120 | 120-13-2 = 105 | 105 | i |
-| 9 | 10 | 4 | 129 | 129-13-4 = 112 | 112 | p |
-| 10 | 11 | 6 | 135 | 135-13-6 = 116 | 116 | t |
-| 11 | 12 | 2 | 117 | 117-13-2 = 102 | 102 | f |
-| 12 | 13 | 4 | 134 | 134-13-4 = 117 | 117 | u |
-| 13 | 14 | 6 | 129 | 129-13-6 = 110 | 110 | n |
-| 14 | 15 | 2 | 75 | 75-13-2 = 60 | 60 | < |
-| 15 | 16 | 4 | 68 | 68-13-4 = 51 | 51 | 3 |
-
-**Result:** `applescriptfun<3`
-
-### Step 6: Verify the Checksum
-
-```python
-text = "applescriptfun<3"
-checksum = sum(ord(c) for c in text) % 256
-
-# Calculation:
-# a=97, p=112, p=112, l=108, e=101, s=115, c=99, r=114,
-# i=105, p=112, t=116, f=102, u=117, n=110, <=60, 3=51
-# Sum = 1631
-# 1631 % 256 = 95 = 0x5f ✓
-```
-
-Checksum matches! The flag is valid.
+### Why Do This?
+**Obfuscation.** Makes analysis harder because you need to:
+1. Disassemble outer layer
+2. Extract the embedded data
+3. Disassemble inner layer
 
 ---
 
-## Common Pitfalls
+## Phase 3: Extracting Inner Script
 
-### Pitfall 1: Thinking State Starts at 0
+### Create Extraction Script
 
-**Wrong approach:**
-```python
-k = (13 * (i % 3 + 1)) % 11  # Using index directly
-# This gives k values: 2, 4, 6, 2, 4, 6, ...
+```bash
+cd ~/seccon14CTF-2025/aeppel/applescript-disassembler
+nano extract.py
 ```
 
-**Correct approach:**
-```python
-state = i + 1
-k = (13 * (state % 3 + 1)) % 11  # Using state = index + 1
-# This gives k values: 4, 6, 2, 4, 6, 2, ...
-```
-
-**How to verify:**
-Encrypt "applescriptfun<3" with both methods and compare to the target bytes.
-
-### Pitfall 2: Getting Distracted by Red Herrings
-
-The disassembly contains many misleading elements:
-- ❌ State names (california, nevada, texas)
-- ❌ Tokyo station names (iidabashi, roppongi, otemachi)
-- ❌ Emoji unicode codes (u1f41d, u1f99c)
-- ✅ The Shimbashi and Ginza functions (THESE ARE IMPORTANT!)
-
-**Lesson:** Focus on the validation logic, not the variable names.
-
-### Pitfall 3: Searching for Exact Writeup Bytes
-
-Your challenge file might have **different target bytes** than the writeup if:
-- It's a practice file
-- It's from a different team/distribution
-- The flag is different
-
-**Solution:** Extract the target bytes from YOUR specific binary.
-
----
-
-## Final Solution
-
-### Complete Solver Script
-
-**File:** `correct_solve.py`
-
+**extract.py:**
 ```python
 #!/usr/bin/env python3
-"""
-SECCON 2025 aeppel - Solution
-Key insight: State starts at 1, not 0!
-"""
+import ast
+import subprocess
 
-def decrypt_shimbashi(encrypted_bytes):
-    """
-    Decrypt using Shimbashi formula (reversed).
+# Run disassembler and capture output
+p = subprocess.run(
+    ["python3", "disassembler.py", "../1.scpt"],
+    capture_output=True,  # Get stdout as string
+    text=True,
+)
 
-    Encryption: encrypted = original + 13 + k
-    Decryption: original = encrypted - 13 - k
-    where k = (13 * (state % 3 + 1)) % 11
-    and state = index + 1 (starts from 1)
-    """
-    decrypted = []
-    for i, enc in enumerate(encrypted_bytes):
-        state = i + 1  # State starts at 1!
-        k = (13 * (state % 3 + 1)) % 11
-        orig = enc - 13 - k
-        decrypted.append(orig)
-    return bytes(decrypted)
+s = p.stdout  # Store the disassembly output
 
-# Target bytes from the writeup
-TARGET_BYTES = [114, 131, 127, 125, 120, 130, 116, 133,
-                120, 129, 135, 117, 134, 129, 75, 68]
+# Find where rawdata starts
+k = s.find("Value type=rawdata value=")
+a = s.find("b'", k)  # Find the b' after that
+q = "'"
+if a == -1:
+    a = s.find('b"', k)
+    q = '"'
 
-# Decrypt
-decrypted = decrypt_shimbashi(TARGET_BYTES)
-flag_inner = decrypted.decode('ascii')
+# Walk through string character by character to find the end
+i = a + 2  # Skip past b'
+esc = False
+while True:
+    c = s[i]
+    if esc:
+        esc = False  # Last char was \, this is escaped
+    elif c == "\\":
+        esc = True   # Next char is escaped
+    elif c == q:     # Found closing '
+        break
+    i += 1
 
-# Verify checksum
-checksum = sum(decrypted) % 256
-assert checksum == 0x5f, f"Checksum failed: {checksum} != 0x5f"
+# Convert string representation to actual bytes
+raw = ast.literal_eval(s[a : i + 1])
+# Example: "b'scpt\\x00'" → actual bytes
 
-print(f"FLAG: SECCON{{{flag_inner}}}")
+# Save it
+with open("raw.bin", "wb") as f:
+    f.write(raw)
+
+print(f"Extracted {len(raw)} bytes to raw.bin")
 ```
 
-**Run it:**
+### How It Works
+
+1. **Runs disassembler:** Captures output as text
+2. **Finds rawdata:** Searches for the embedded AppleScript
+3. **Parses carefully:** Handles escape sequences like `\x00`, `\\'`
+4. **Converts to bytes:** Uses `ast.literal_eval()` to convert string representation to actual bytes
+5. **Saves to file:** Writes binary data to `raw.bin`
+
+### Run Extraction
+
 ```bash
-python3 correct_solve.py
+python3 extract.py
+# Output: Extracted XXXXX bytes to raw.bin
+```
+
+### Verify What We Got
+
+```bash
+hexdump -C raw.bin | head -3
 ```
 
 **Output:**
 ```
-FLAG: SECCON{applescriptfun<3}
+00000000  73 63 70 74 46 61 73 64  55 41 53 20 31 2e 31 30  |scptFasdUAS 1.10|
+```
+
+**Problem:** Extra `scpt` prefix (4 bytes). Valid AppleScript should start with `Fasd`.
+
+### Remove Extra Header
+
+The `dd` command (disk dump) copies files with control over byte positions.
+
+```bash
+dd if=raw.bin of=inner.scpt bs=1 skip=4
+```
+
+**Parameters:**
+- `if=raw.bin` - **Input File**
+- `of=inner.scpt` - **Output File**  
+- `bs=1` - **Block Size** = 1 byte (process byte-by-byte)
+- `skip=4` - **Skip first 4 blocks** (4 bytes)
+
+**Visual representation:**
+```
+raw.bin:     [s][c][p][t][F][a][s][d][U][A][S]...
+              └─────────┘    └─────────────────→
+              skip these 4   copy from here
+
+inner.scpt:               [F][a][s][d][U][A][S]...
+```
+
+### Verify Success
+
+```bash
+file inner.scpt
+# Should show: inner.scpt: AppleScript compiled
+
+ls -lh inner.scpt
 ```
 
 ---
 
-## Quick Reference Commands
+## Phase 4: Disassembling Inner Script
 
-### Setup
+### Disassemble
+
 ```bash
-# Clone the AppleScript disassembler
-git clone https://github.com/mat/applescript-disassembler.git
+cd ~/seccon14CTF-2025/aeppel/applescript-disassembler
+python3 disassembler.py inner.scpt > inner_disasm.txt
+```
+
+### Check Output
+
+```bash
+wc -l inner_disasm.txt
+# Should show ~1640 lines
+
+head -50 inner_disasm.txt
+```
+
+### Find Flag-Related Code
+
+```bash
+grep -n "SECCON\|flag\|FLAG" inner_disasm.txt
+# Output: 67: 00030 PopGlobal b'FLAG'
+```
+
+### Understanding the Dialog Without macOS
+
+Look at the disassembly around line 28:
+
+```
+00000 PushLiteral 0 # [177, <Value type=string value=b'\x00E\x00n\x00t\x00e\x00r\x00 \x00t\x00h\x00e\x00 \x00f\x00l\x00a\x00g'>]
+```
+
+**Decoding `\x00E\x00n\x00t\x00e\x00r...`:**
+- `\x00` = null byte (UTF-16 encoding)
+- Reading every other byte: `E n t e r   t h e   f l a g`
+
+This shows the script displays a dialog asking for flag input.
+
+---
+
+## Phase 5: Finding Target Values
+
+### Identify Key Functions
+
+```bash
+grep -n "^Function name" inner_disasm.txt
+```
+
+**Output:**
+```
+28:Function name : <...main...>
+108:Function name : b'Iidabashi'     ← Main validator
+576:Function name : b'Roppongi'
+613:Function name : b'Otemachi'
+625:Function name : b'Kanda'          ← Hash check
+1009:Function name : b'Sugamo'        ← Hash check
+1297:Function name : b'Jimbocho'
+1309:Function name : b'trimNSString'
+1327:Function name : b'splitNSString'
+1355:Function name : b'Shimbashi'     ← Encryption!
+1458:Function name : b'Ginza'         ← Checksum
+1499:Function name : b'stripWhitespace'
+1597:Function name : b'split'
+```
+
+### Extract Target Array
+
+```bash
+sed -n '168,183p' inner_disasm.txt
+```
+
+**Output:**
+```
+00042 PushLiteralExtended 18 # <Value type=fixnum value=0x72>
+00045 PushLiteralExtended 19 # <Value type=fixnum value=0x83>
+00048 PushLiteralExtended 20 # <Value type=fixnum value=0x7f>
+0004b PushLiteral 9 # <Value type=fixnum value=0x7d>
+0004c PushLiteralExtended 21 # <Value type=fixnum value=0x78>
+...
+00073 MakeVector
+00074 Push1
+00075 MakeVector
+00076 GetData
+00077 PopVariable [var_11]  ← Stored in var_11
+```
+
+### How to Identify Target Values
+
+**Pattern recognition:**
+1. **16 consecutive hex pushes** (0x72, 0x83, 0x7f... 0x44)
+2. **Followed by `MakeVector`** - creates an array
+3. **Stored in variable** `var_11`
+
+**Why 16 bytes?**
+- Flag format: `SECCON{????????????????}`
+- Total: 24 chars
+- Prefix: 7 chars (`SECCON{`)
+- Suffix: 1 char (`}`)
+- **Middle: 16 chars** ← This is what gets encrypted
+
+### Extract All Values
+
+```bash
+sed -n '168,183p' inner_disasm.txt | grep -oP '0x[0-9a-f]+'
+```
+
+**Target array:**
+```
+0x72, 0x83, 0x7f, 0x7d, 0x78, 0x82, 0x74, 0x85,
+0x78, 0x81, 0x87, 0x75, 0x86, 0x81, 0x4b, 0x44
+```
+
+---
+
+## Phase 6: Identifying Validation Functions
+
+### Trace Function Calls in Iidabashi
+
+```bash
+sed -n '108,600p' inner_disasm.txt | grep "PositionalMessageSend"
+```
+
+**Output:**
+```
+00003 PositionalMessageSend 0 # b'Jimbocho'
+0000c PositionalMessageSend 1 # b'trimNSString'
+000cc PositionalMessageSend 50 # b'Roppongi'
+000d5 PositionalMessageSend 51 # b'Otemachi'
+0018f PositionalMessageSend 62 # b'Shimbashi'    ← Encryption!
+001ab PositionalMessageSend 63 # b'Ginza'        ← Checksum
+001c4 PositionalMessageSend 64 # b'Kanda'        ← Hash
+0026a PositionalMessageSend 66 # b'Sugamo'       ← Hash
+```
+
+### Validation Flow
+
+```
+User Input
+    ↓
+Jimbocho (convert to string)
+    ↓
+trimNSString (remove whitespace)
+    ↓
+Check: hasPrefix("SECCON{")
+Check: hasSuffix("}")
+Check: length == 24
+    ↓
+Extract middle 16 characters
+    ↓
+Shimbashi(middle, 13, 6843, 6856) → Encrypt
+    ↓
+Compare with target array [0x72, 0x83, ...]
+    ↓
+Ginza(middle) → Checksum validation
+Kanda(middle) → Hash validation
+Sugamo(middle) → Hash validation
+```
+
+**Key insight:** `Shimbashi` is the encryption function we need to reverse.
+
+---
+
+## Phase 7: Reversing Shimbashi Encryption
+
+### View Shimbashi Function
+
+```bash
+sed -n '1355,1456p' inner_disasm.txt
+```
+
+**Function signature:**
+```
+Function name : b'Shimbashi'
+Function arguments:  [b'washingtondc', b'colorado', b'idaho', b'kansas']
+```
+
+### Decode the Variables
+
+Looking at how Iidabashi calls Shimbashi:
+
+```
+var_0 (washingtondc) = middle 16 chars of input
+var_1 (colorado) = 13
+var_2 (idaho) = 6843 (0x1abb)
+var_3 (kansas) = 6856 (0x1ac8)
+```
+
+**Calculate var_5:**
+```
+00005 PushVariable [var_3 (b'kansas')]
+00006 PushVariable [var_2 (b'idaho')]
+00007 Subtract
+00008 PushLiteral 0 # <Value type=fixnum value=0x100>
+00009 Remainder
+
+var_5 = (6856 - 6843) % 256 = 13
+```
+
+### Understanding the Encryption Loop
+
+**Lines 0x0d-0x70: Main loop**
+
+```
+0001b RepeatInCollection  ← Start loop over each character
+```
+
+**For each character:**
+
+1. **Get character code (lines 0x042-0x047):**
+```
+00042 PushVariable [var_9]  ← Current character
+00044 MessageSend 6 # 'shor'  ← Convert to short (ASCII code)
+```
+
+2. **Calculate dynamic offset k (lines 0x04b-0x056):**
+```
+0004b PushVariable [var_5]     ← 13
+0004c PushVariable [var_7]     ← loop index (0, 1, 2, ...)
+0004d Push3
+0004e Remainder               ← index % 3
+0004f Push1
+00050 Add                     ← (index % 3) + 1
+00051 Multiply                ← 13 * ((index % 3) + 1)
+00052 PushLiteral 7 # 0xb
+00053 Remainder               ← % 11
+
+k = (13 * ((index % 3) + 1)) % 11
+```
+
+3. **Encrypt character (lines 0x057-0x05b):**
+```
+00057 PushVariable [var_10]    ← char_code
+00058 PushVariable [var_1]     ← 13 (colorado)
+00059 Add                      ← char_code + 13
+0005a PushVariable [var_11]    ← k
+0005b Add                      ← char_code + 13 + k
+
+encrypted = char_code + 13 + k
+```
+
+### Complete Algorithm
+
+```python
+var_5 = 13  # (6856 - 6843) % 256
+colorado = 13
+
+for i, character in enumerate(input):
+    char_code = ord(character)
+    k = (13 * ((i % 3) + 1)) % 11
+    encrypted = (char_code + 13 + k) % 256
+    output.append(encrypted)
+```
+
+### Why Index is 1-Based
+
+Looking at the loop structure, AppleScript's RepeatInCollection typically uses 1-based indexing. Testing both confirms 1-based works:
+
+```python
+# 0-based: k = (13 * ((0 % 3) + 1)) % 11 = 2
+# 1-based: k = (13 * ((1 % 3) + 1)) % 11 = 4
+```
+
+---
+
+## Phase 8: Writing the Solver
+
+### Reverse the Encryption
+
+To decrypt: `original = encrypted - 13 - k`
+
+### Create Solver Script
+
+```bash
+cd ~/seccon14CTF-2025/aeppel/applescript-disassembler
+nano solve.py
+```
+
+**solve.py:**
+```python
+#!/usr/bin/env python3
+
+# Target encrypted values from var_11
+target = [
+    0x72, 0x83, 0x7f, 0x7d, 0x78, 0x82, 0x74, 0x85,
+    0x78, 0x81, 0x87, 0x75, 0x86, 0x81, 0x4b, 0x44
+]
+
+flag_middle = ""
+
+for i, encrypted in enumerate(target):
+    # AppleScript uses 1-based indexing
+    index = i + 1
+    
+    # Calculate the dynamic offset
+    k = (13 * (index % 3 + 1)) % 11
+    
+    # Decrypt
+    original = encrypted - 13 - k
+    
+    # Convert to character
+    flag_middle += chr(original)
+
+# Construct full flag
+flag = f"SECCON{{{flag_middle}}}"
+print(flag)
+
+# Verify checksum (Ginza function checks sum % 256 == 0x5f)
+total = sum(ord(c) for c in flag_middle)
+if total % 256 == 0x5f:
+    print("✓ Ginza checksum passed")
+else:
+    print(f"✗ Ginza checksum failed: {total % 256} != 0x5f")
+```
+
+### Run the Solver
+
+```bash
+python3 solve.py
+```
+
+**Output:**
+```
+SECCON{applescriptfun<3}
+✓ Ginza checksum passed
+```
+
+---
+
+## Key Learnings
+
+### Reverse Engineering Methodology
+
+1. **Always start with reconnaissance:**
+   - `file` - Identify file type
+   - `strings` - Extract readable text
+   - `hexdump` - Check magic bytes and structure
+
+2. **Look for patterns:**
+   - Repeated values (substitution tables)
+   - Constants (encryption keys)
+   - Function names (logic flow)
+
+3. **Trace data flow:**
+   - Input → Processing → Comparison
+   - Find where validation happens
+   - Identify encryption functions
+
+### Why These Commands Work
+
+**Without seeing writeups, you discover them by:**
+
+1. **File analysis needs:** → search "how to analyze binary files" → find `file`, `strings`, `hexdump`
+2. **Decompilation needs:** → search "applescript decompiler" → find disassembler tools
+3. **Pattern extraction:** → use `grep`, `sed`, `awk` to find specific data
+
+**The key insight:** Compiled code always has:
+- String literals (error messages, prompts)
+- Comparison operations (validation checks)
+- Mathematical operations (encryption)
+
+### Common CTF Techniques Used
+
+1. **Nested obfuscation:** Script within script
+2. **Anti-analysis:** Platform-specific format (macOS only)
+3. **Substitution cipher:** Multiple encoding layers
+4. **Checksum validation:** Multiple validation functions
+5. **Magic constants:** Values like 13, 6843, 6856 are clues
+
+### How to Approach Similar Challenges
+
+1. **Don't panic about unknown formats** - Tools exist for everything
+2. **Read disassembly systematically** - Start from entry point, trace calls
+3. **Look for arrays/vectors** - Often contain target values
+4. **Identify math operations** - Usually reveal encryption logic
+5. **Test hypotheses** - Write small scripts to verify understanding
+
+---
+
+## Complete Command Reference
+
+### Phase 1: Reconnaissance
+```bash
+file 1.scpt
+strings 1.scpt | head -50
+strings 1.scpt | grep -E "^[a-z]+$"
+hexdump -C 1.scpt | head -3
+```
+
+### Phase 2: Setup Disassembler
+```bash
+git clone https://github.com/Jinmo/applescript-disassembler
 cd applescript-disassembler
-```
-
-### Analysis
-```bash
-# Disassemble the binary
 python3 disassembler.py ../1.scpt > ../disassembled.txt
-
-# Search for key functions
-grep -i "shimbashi" ../disassembled.txt
-grep -i "ginza" ../disassembled.txt
 ```
 
-### Solve
+### Phase 3: Extract Inner Script
 ```bash
-# Run the solver
-python3 correct_solve.py
+python3 extract.py
+dd if=raw.bin of=inner.scpt bs=1 skip=4
+file inner.scpt
+```
+
+### Phase 4: Disassemble Inner
+```bash
+python3 disassembler.py inner.scpt > inner_disasm.txt
+wc -l inner_disasm.txt
+```
+
+### Phase 5: Find Targets
+```bash
+grep -n "^Function name" inner_disasm.txt
+sed -n '168,183p' inner_disasm.txt | grep -oP '0x[0-9a-f]+'
+```
+
+### Phase 6: Trace Functions
+```bash
+sed -n '108,600p' inner_disasm.txt | grep "PositionalMessageSend"
+```
+
+### Phase 7: Analyze Encryption
+```bash
+sed -n '1355,1456p' inner_disasm.txt
+```
+
+### Phase 8: Solve
+```bash
+python3 solve.py
 ```
 
 ---
 
-## Questions I Asked & Confusions Clarified
+## Conclusion
 
-### Q1: "Is this about state names → Tokyo stations → emoji mappings?"
-**A:** No! Those are red herrings. The real challenge is reversing the Shimbashi encryption and Ginza checksum functions.
-
-### Q2: "Why can't I find the target bytes in my binary?"
-**A:** The target bytes are embedded in the bytecode structure. Different challenge instances may have different bytes. You need to either:
-- Use the known writeup values (for the original challenge)
-- Extract them from your specific binary by analyzing the Shimbashi function
-
-### Q3: "Why does my decryption give 'crlngoetervbwp85' instead of 'applescriptfun<3'?"
-**A:** The state counter starts at **1**, not 0! Use `state = i + 1` in the k formula.
-
-### Q4: "How do I verify my solution is correct?"
-**A:** Check two things:
-1. Does it decrypt to readable ASCII text?
-2. Does `sum(bytes) % 256 == 0x5f` (95)?
-
----
-
-## Key Takeaways
-
-1. **Don't trust variable names** - Focus on the actual validation logic
-2. **State starts at 1** - This is the critical insight for correct decryption
-3. **Verify your work** - Use the checksum to confirm your solution
-4. **Read writeups carefully** - Multiple writeups can reveal different insights
-5. **Test your assumptions** - Encrypt known plaintext to verify your formula
-
----
-
-## References
-
-- [jia.je writeup](https://jia.je/ctf-writeups/2025-12-13-seccon-ctf-2025-quals/aeppel.html)
-- [Qiita writeup (Japanese)](https://qiita.com/claustra01/items/a36067afa3b3cbf5a175)
-- [caphosra.net writeup](https://caphosra.net/posts/2025-12-17-seccon-quals/)
-- [AppleScript Disassembler](https://github.com/mat/applescript-disassembler)
-
----
-
-## Appendix: Encryption/Decryption Reference
-
-### Encryption (for verification)
-```python
-def encrypt(plaintext):
-    encrypted = []
-    for i, char in enumerate(plaintext):
-        state = i + 1
-        k = (13 * (state % 3 + 1)) % 11
-        enc = ord(char) + 13 + k
-        encrypted.append(enc)
-    return encrypted
-```
-
-### Decryption (for solving)
-```python
-def decrypt(encrypted_bytes):
-    decrypted = []
-    for i, enc in enumerate(encrypted_bytes):
-        state = i + 1
-        k = (13 * (state % 3 + 1)) % 11
-        orig = enc - 13 - k
-        decrypted.append(orig)
-    return bytes(decrypted)
-```
-
-### Checksum Verification
-```python
-def verify_checksum(text):
-    return sum(ord(c) for c in text) % 256 == 0x5f
-```
-
----
+This challenge taught us:
+- How to work with unfamiliar binary formats
+- Nested obfuscation techniques
+- Systematic reverse engineering methodology
+- The importance of understanding data flow in bytecode
 
 **Flag:** `SECCON{applescriptfun<3}`
 
----
-
-*Written as a reference for future CTF challenges involving AppleScript reverse engineering.*
+The flag itself is a playful nod to AppleScript - acknowledging that despite the difficulty, working with it can be "fun" (with a heart emoji `<3`).

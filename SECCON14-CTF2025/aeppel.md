@@ -16,7 +16,7 @@
 **Challenge Name:** aeppel
 
 **Category:** Reverse Engineering
-**Points:** TBD
+
 **Files:** `1.scpt` (AppleScript compiled binary)
 
 **Goal:** Reverse engineer a compiled AppleScript file to extract the flag.

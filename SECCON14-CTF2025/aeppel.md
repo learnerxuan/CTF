@@ -14,6 +14,7 @@
 ## Challenge Overview
 
 **Challenge Name:** aeppel
+
 **Category:** Reverse Engineering
 **Points:** TBD
 **Files:** `1.scpt` (AppleScript compiled binary)

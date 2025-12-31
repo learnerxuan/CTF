@@ -1,8 +1,11 @@
 # Old School PWN - Complete Writeup
 
 **Challenge**: old_school
+
 **Category**: Binary Exploitation
+
 **Technique**: Stack Pivot via ECX Control + Format String Leak
+
 **Difficulty**: Medium
 
 ---

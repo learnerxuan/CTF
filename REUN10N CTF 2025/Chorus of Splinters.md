@@ -14,7 +14,7 @@
 2. [Initial Analysis](#initial-analysis)
 3. [Binary Protections](#binary-protections)
 4. [Fundamental Concepts Explained](#fundamental-concepts-explained)
-5. [Reverse Engineering with Ghidra MCP](#reverse-engineering-with-ghidra-mcp)
+5. [Reverse Engineering with Ghidra](#reverse-engineering-with-ghidra)
 6. [Vulnerability Analysis](#vulnerability-analysis)
 7. [Exploitation Attempts](#exploitation-attempts)
 8. [Lessons Learned](#lessons-learned)
@@ -402,40 +402,20 @@ Like arranging furniture, the program "arranges" heap chunks in a specific (but 
 
 ---
 
-## Reverse Engineering with Ghidra MCP
+## Reverse Engineering with Ghidra
 
-### Step 1: Connect to Ghidra
+### Step 1: Load Binary in Ghidra
 
-```bash
-# Ghidra MCP automatically connects to running Ghidra instance
-# Check status:
-```
-
-**Using MCP:**
-```python
-mcp__ghidra__ghidra_status()
-```
-
-**Output:**
-```json
-{
-  "mode": "bridge",
-  "connected": true,
-  "program": {
-    "name": "chorus_of_splinters",
-    "path": "/path/to/chorus_of_splinters",
-    "language": "x86:LE:64:default"
-  }
-}
-```
+1. Open Ghidra and create a new project
+2. Import `chorus_of_splinters` binary
+3. Analyze with default settings
+4. Wait for auto-analysis to complete
 
 ---
 
 ### Step 2: List All Functions
 
-```python
-mcp__ghidra__list_functions(filter_external=True)
-```
+In Ghidra's Symbol Tree window, filter to show only defined functions.
 
 **Key functions found:**
 ```
@@ -459,9 +439,7 @@ mcp__ghidra__list_functions(filter_external=True)
 ### Step 3: Decompile Functions
 
 **Example: Decompile `main()`**
-```python
-mcp__ghidra__decompile_function(address="0x001019b0", include_assembly=True)
-```
+Double-click on the `main` function in the Symbol Tree or Listing view to see the decompiled output.
 
 **Decompiled `main()` output:**
 ```c
@@ -503,10 +481,7 @@ void main(void) {
 
 ### Step 4: Analyze `reveal_flag()`
 
-**Decompile:**
-```python
-mcp__ghidra__decompile_function(address="0x00101229")
-```
+Navigate to the `reveal_flag` function in Ghidra's Listing view to see the decompiled code.
 
 **Code:**
 ```c
@@ -576,9 +551,7 @@ ret
 
 ### Step 6: Search for Strings
 
-```python
-mcp__ghidra__search_strings(pattern="")
-```
+In Ghidra, go to Search → For Strings to find all string references in the binary.
 
 **Interesting strings:**
 ```
@@ -590,9 +563,7 @@ mcp__ghidra__search_strings(pattern="")
 
 ### Step 7: Find Cross-References
 
-```python
-mcp__ghidra__get_xrefs_to(address="0x00101229")  # reveal_flag
-```
+Right-click on `reveal_flag` function and select References → Show References to reveal_flag.
 
 **Output:** Only referenced by `build_jit()` - never called directly in normal execution!
 
@@ -1020,12 +991,12 @@ p.send(p64(0x555555555229))
 
 ### Technical Skills
 
-1. ✅ **Binary analysis with Ghidra MCP**
+1. ✅ **Binary analysis with Ghidra**
    - Decompiling functions
    - Finding vulnerabilities
    - Understanding program flow
 
-2. ✅ **Dynamic analysis with pwndbg MCP**
+2. ✅ **Dynamic analysis with GDB/pwndbg**
    - Checking protections
    - Inspecting memory
    - Debugging basics
@@ -1062,6 +1033,109 @@ p.send(p64(0x555555555229))
 
 ---
 
+## Tools & Commands Reference
+
+### Ghidra Usage
+
+**Load binary:**
+1. File → New Project → Non-Shared Project
+2. File → Import File → Select binary
+3. Analysis → Auto Analyze → Accept defaults
+
+**Navigate functions:**
+- Symbol Tree window → Functions folder
+- Double-click function to view decompilation
+- Press `G` to go to specific address
+
+**Search strings:**
+- Search → For Strings
+- Filter results as needed
+
+**Find cross-references:**
+- Right-click symbol → References → Show References to...
+
+**View call graph:**
+- Select function → Graph → Calls
+- Shows function call relationships
+
+---
+
+### GDB/pwndbg Commands
+
+**Start debugging:**
+```bash
+gdb ./chorus_of_splinters
+```
+
+**Check security:**
+```
+pwndbg> checksec
+```
+
+**Get PIE base:**
+```
+pwndbg> piebase
+```
+
+**View memory map:**
+```
+pwndbg> vmmap
+```
+
+**Set breakpoint:**
+```
+pwndbg> break main
+pwndbg> break *0x555555555229
+```
+
+**Run program:**
+```
+pwndbg> run
+pwndbg> r
+```
+
+**Continue execution:**
+```
+pwndbg> continue
+pwndbg> c
+```
+
+**Step instruction:**
+```
+pwndbg> stepi
+pwndbg> si
+```
+
+**View registers:**
+```
+pwndbg> registers
+pwndbg> regs
+```
+
+**Examine memory:**
+```
+pwndbg> x/10gx 0x555555558000
+pwndbg> x/10gx $rsp
+```
+
+**View GOT:**
+```
+pwndbg> got
+```
+
+**View heap:**
+```
+pwndbg> heap
+pwndbg> bins
+```
+
+**Context display:**
+```
+pwndbg> context
+pwndbg> ctx
+```
+
+---
 
 ### Command Line Tools
 
@@ -1146,7 +1220,7 @@ p.interactive()
 - ✅ Complete binary analysis workflow
 - ✅ Vulnerability identification
 - ✅ Modern exploitation concepts
-- ✅ Tool usage (Ghidra MCP, pwndbg MCP)
+- ✅ Tool usage (Ghidra, GDB/pwndbg)
 - ✅ Heap exploitation theory
 
 **Vulnerabilities found:**
@@ -1157,6 +1231,17 @@ p.interactive()
 **Goal:** Overwrite GOT with `reveal_flag` address to execute and decrypt flag.
 
 **Why it failed:** UAF doesn't create exploitable overlap without additional complex heap manipulation.
+
+---
+
+## Files Created
+
+All exploit attempts saved in:
+- `/home/xuan/reunion_CTF2025/Chorus_of_Splinters/exploit.sh`
+- `/home/xuan/reunion_CTF2025/Chorus_of_Splinters/simple_exploit.py`
+- `/home/xuan/reunion_CTF2025/Chorus_of_Splinters/offbyone_exploit.py`
+
+---
 
 ---
 
@@ -1586,20 +1671,20 @@ uname -r
 
 ---
 
-### Problem: "Can't set breakpoints in pwndbg"
+### Problem: "Can't set breakpoints in GDB"
 
 **Cause:** PIE randomization or timing issues
 
 **Solutions:**
-```python
-# Use pwndbg_execute with raw GDB commands
-mcp__pwndbg__pwndbg_execute(command="b *main+50")
+```bash
+# Break at offset from function
+(gdb) b *main+50
 
-# Or break on symbols
-mcp__pwndbg__pwndbg_execute(command="b create")
+# Break on symbol
+(gdb) b create
 
 # Check if symbols loaded
-mcp__pwndbg__pwndbg_execute(command="info functions")
+(gdb) info functions
 ```
 
 ---
@@ -1804,7 +1889,7 @@ This challenge, while unsolvable, provided excellent learning opportunities:
 ### What Worked Well ✅
 - Complete binary analysis workflow
 - Understanding modern protections
-- Tool proficiency (Ghidra/pwndbg MCP)
+- Tool proficiency (Ghidra/GDB/pwndbg)
 - Concept comprehension (entropy, JIT, checksums, structs)
 - Exploitation theory and practice
 
@@ -1827,22 +1912,21 @@ This challenge, while unsolvable, provided excellent learning opportunities:
 ## Acknowledgments
 
 **Tools Used:**
-- **Ghidra MCP** - Excellent for static analysis (9/10)
-- **pwndbg MCP** - Good for dynamic analysis (6.5/10)
+- **Ghidra** - Static analysis and decompilation
+- **GDB/pwndbg** - Dynamic analysis and debugging
 - **pwntools** - Python exploitation framework
-- **GDB** - GNU Debugger
 - **checksec** - Security auditing
 
 **Thanks to:**
 - Challenge author (for the learning experience)
-- Anthropic (for Claude and MCP servers)
 - Open source PWN community
+- Ghidra and pwndbg developers
 
 ---
 
-**Author:** Analysis by Claude (Anthropic)
+**Author:** CTF Analysis
 **Date:** January 2026
-**Tools:** Ghidra MCP, pwndbg MCP, pwntools
+**Tools:** Ghidra, GDB/pwndbg, pwntools
 **Status:** Complete Analysis (Challenge Unsolvable)
 
 ---

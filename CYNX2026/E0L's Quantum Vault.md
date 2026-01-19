@@ -1,8 +1,11 @@
 # E0L Quantum Vault - CTF Writeup
 
 **Challenge Name:** E0L Quantum Vault
+
 **Category:** PWN
+
 **Difficulty:** Medium
+
 **Flag:** `CYNX{E0L_d0ubl3_wr1t3_s1gn4l_h4ndl3r_pwn}`
 
 ---

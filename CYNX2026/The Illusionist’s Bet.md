@@ -1,8 +1,9 @@
 # The Illusionist's Bet - Reverse Engineering Writeup
 
 **Challenge:** The Illusionist's Bet
+
 **Category:** Reverse Engineering
-**Points:** TBD
+
 **Flag:** `CYNX{4W_d@ngit_x1337_THE_HOUSE_ALWAYS_WINS}`
 
 ---

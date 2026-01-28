@@ -1142,10 +1142,4 @@ This challenge taught us:
 
 **The key insight:** Printf's internal malloc call was the trigger mechanism!
 
----
-
-**Challenge Author:** 0xL4ugh CTF 2026
-**Solved By:** [Your Name]
-**Date:** January 2026
-
 🎉 **FLAG:** `0xL4ugh{Z0R0_F1N4LLY_F0UND_TH3_FM7_P47H_fcecdb9e77d6b1f0}`

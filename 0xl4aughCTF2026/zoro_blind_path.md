@@ -1,9 +1,11 @@
 # Zoro's Blind Path - Complete Writeup
 
 **Challenge:** Zoro's Blind Path
+
 **Category:** PWN / Format String
+
 **Difficulty:** Medium-Hard
-**Points:** [Points]
+
 **CTF:** 0xL4ugh CTF 2026
 
 **Flag:** `0xL4ugh{Z0R0_F1N4LLY_F0UND_TH3_FM7_P47H_fcecdb9e77d6b1f0}`

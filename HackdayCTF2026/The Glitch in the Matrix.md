@@ -2,9 +2,9 @@
 
 ## Challenge Description
 
-**Category:** Steganography
-**Difficulty:** Medium
-**SHA1:** 4bbab076a0aa488761cd216a82bf4e508a2953ab
+**Category:** Steganography  
+**Difficulty:** Medium  
+**SHA1:** 4bbab076a0aa488761cd216a82bf4e508a2953ab  
 
 The challenge text reads:
 

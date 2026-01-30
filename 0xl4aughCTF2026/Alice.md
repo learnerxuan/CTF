@@ -1,9 +1,13 @@
 # Alice - Heap Exploitation Writeup
 
 **Challenge Name**: Alice
+
 **Challenge Description**: Alice, struggling with the traumatic death of her family, returns to a corrupted Wonderland to unlock repressed memories. Can you help her remember who she is?
+
 **Category**: PWN (Heap Exploitation)
+
 **Difficulty**: Hard
+
 **Target**: GLIBC 2.39 with all protections enabled
 
 ## Table of Contents

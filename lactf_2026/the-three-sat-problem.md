@@ -1,9 +1,9 @@
 # The Three-SAT Problem - LA CTF 2026 Writeup
 
-**Challenge:** The Three-SAT Problem
-**Category:** Reverse Engineering / Cryptography
-**Difficulty:** Hard
-**Flag:** `lactf{is_the_three_body_problem_np_hard}`
+**Challenge:** The Three-SAT Problem  
+**Category:** Reverse Engineering / Cryptography  
+**Difficulty:** Hard  
+**Flag:** `lactf{is_the_three_body_problem_np_hard}`  
 
 ---
 

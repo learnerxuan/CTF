@@ -126,9 +126,9 @@ The challenge joke references P=NP - if proven, 3-SAT could be solved in polynom
 
 ## Static Analysis
 
-### Disassembly with IDA Pro
+### Disassembly with IDA 
 
-Opening the binary in IDA Pro, we identify key functions:
+Opening the binary in IDA , we identify key functions:
 
 #### Main Function (0x1090)
 

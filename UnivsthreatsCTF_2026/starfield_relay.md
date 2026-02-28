@@ -1,12 +1,4 @@
-# Starfield Relay — Full Reverse Engineering Writeup (Beginner‑Friendly + Deep Detail)
-
-This writeup explains **everything** step‑by‑step as if you’re new to RE. It includes:
-
-- Exact stage flow
-- Key offsets and disassembly landmarks
-- Full VM opcode mapping
-- Commands used
-- The full working solver script
+# Starfield Relay — Full Reverse Engineering Writeup 
 
 Final correct flag:
 

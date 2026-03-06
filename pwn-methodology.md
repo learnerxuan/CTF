@@ -504,6 +504,83 @@ Exploit crashes?
 | Format string no-op | Wrong positional offset | Test `%p.%p.%p...` and count position of your input |
 | Canary detected | Overflow hit canary | Leak canary first, or overwrite around it |
 
+### Debugging discipline
+
+**🔴 LEARNED FROM REAL FAILURES — Follow these rules strictly.**
+
+#### 3-Strike Rule
+```
+After 3 failed attempts at the SAME approach → MANDATORY STOP.
+1. Do NOT try a 4th variation
+2. Attach GDB, find exact faulting instruction
+3. Understand ROOT CAUSE (not symptoms)
+4. Re-enumerate ALL alternative approaches
+5. Check: which provided leaks am I NOT using?
+```
+
+#### Root Cause Analysis (not symptom chasing)
+```
+WRONG: Saw SIGSEGV → tried different offset → SIGSEGV again → tried again
+RIGHT: Saw SIGSEGV → GDB backtrace → exact faulting instruction →
+       "movzx eax, BYTE PTR [rax]" → rax = 0x1423 → WHY is this address bad? →
+       It's mid-instruction! → I'm jumping into the middle of a mov instruction →
+       ROOT CAUSE: intermediate address during bit flips is invalid
+```
+
+#### Signal Reading
+```
+Unexpected output is DIAGNOSTIC, not noise:
+- Double "DEBUG" prints → key corruption in VM (instructions decoding wrong)
+- Hang during read → wrong recv delimiter (reading until \n vs until menu)
+- Wrong leaked values → offset calculation error, verify with GDB
+- Crash in libc function → wrong base calculation or missing struct field
+```
+
+#### Leak Audit (before implementing exploit)
+```
+BEFORE writing exploit code:
+1. List ALL leaks the challenge provides
+2. For EACH leak, state what it enables:
+   - PIE leak → code gadget addresses
+   - Stack leak → return address location
+   - Heap leak → heap structure addresses (FILE, tcache, chunks)
+   - Libc leak → libc gadgets, globals, hooks
+3. If ANY leak has no stated purpose → you're MISSING something
+4. Unused leak = unidentified attack vector
+```
+
+#### MCP-Aware Debugging
+```
+- Single GDB commands only through pwndbg MCP
+- NO multiline commands ... end blocks (will hang)
+- Use watchpoints for catching writes: watch *0x404020
+- Use conditional breakpoints: b *addr if $rax == 0xdeadbeef
+```
+
+#### Token Efficiency (CRITICAL — read before every session)
+```
+THE #1 TOKEN WASTE PATTERN: Writing GDB Python scripts to debug.
+
+WRONG (token spiral):
+  Write gdb_debug.py → run → parse output → wrong question →
+  Write gdb_debug2.py → run → still wrong → repeat...
+  Each iteration: ~500 tokens wasted. Usually 3+ iterations.
+
+RIGHT (targeted verification):
+  State hypothesis in 1 sentence →
+  pwndbg MCP: set 1 breakpoint → read 1 register → confirmed/killed →
+  Total: ~5 tool calls. Root cause found.
+
+RULES:
+1. NEVER write a separate .py script to run in GDB
+2. ALWAYS use pwndbg MCP directly as a REPL/calculator
+3. ALWAYS state what you expect BEFORE reading memory
+4. ALWAYS exhaust Ghidra (static, free) before pwndbg (dynamic, costly)
+5. ONE hypothesis per debug session — don't "poke around"
+6. If pwndbg output is huge (heap bins dump), use specialized tools
+   (pwndbg_bins, pwndbg_heap) instead of pwndbg_execute
+```
+
 ---
 
 ## TECHNIQUE REFERENCE
@@ -614,6 +691,305 @@ bss_addr = pie_base + 0x4000  # find exact offset with readelf -S
 # Sometimes needs brute-force (4-bit = 1/16 chance)
 ```
 
+### Heap Exploitation Deep Dive (glibc 2.32+)
+
+**🔴 CRITICAL — Safe-linking, FSOP, and heap houses cause the most failures.**
+
+#### Safe-Linking Mechanics
+```python
+# WRONG: Using heap_base for the key
+heap_key = heap_base >> 12
+encrypted = target ^ heap_key  # ❌ WRONG
+
+# RIGHT: Using the CHUNK'S OWN ADDRESS for the key
+encrypted = target ^ (chunk_addr >> 12)  # ✅ CORRECT
+# Each chunk uses its own address, not the heap base!
+
+# Full demangling (for reading encrypted pointers):
+def demangle_ptr(v):
+    """Recursively decrypt safe-linked pointer"""
+    r = v
+    for _ in range(4):
+        r = v ^ (r >> 12)
+    return r
+
+# Reading tcache tail gives key directly (fd encrypted with itself ^ 0)
+# But other chunks need full demangle_ptr()
+```
+
+**Verify in GDB:**
+```bash
+pwndbg> heap              # Show all chunks
+pwndbg> bins              # Show tcache/fastbin/unsorted state
+pwndbg> x/gx <chunk_addr> # Read encrypted fd
+pwndbg> p/x <chunk_addr> >> 12  # Calculate expected key
+```
+
+#### Heap Layout Awareness
+```
+Heap Start (after mmap):
+  heap_base + 0x000: [prev_size | size]       ← tcache_perthread_struct header
+  heap_base + 0x010: [tcache counts + entries] ← ~0x290 bytes!
+  heap_base + 0x2a0: [first user chunk]        ← NOT heap_base + 0x10!
+
+⚠️  NEVER assume chunk0 = heap_base + small_offset
+⚠️  ALWAYS verify chunk addresses with GDB: pwndbg> heap
+```
+
+#### Unsorted Bin Leak Verification
+```bash
+# NEVER hardcode unsorted bin offsets from blog posts!
+# ALWAYS verify with YOUR libc:
+pwndbg> vmmap libc                         # Get libc base
+pwndbg> x/gx <freed_unsorted_chunk>         # Read fd/bk
+pwndbg> p/x <leaked_value> - <libc_base>    # Calculate YOUR offset
+
+# Common offsets CHANGE between libc versions:
+# glibc 2.35: main_arena+96 ≠ glibc 2.31: main_arena+96
+# The absolute offset from libc base differs!
+```
+
+#### FSOP / House of Apple 2 Checklist (glibc 2.35+, Full RELRO)
+```python
+# When building a fake _IO_FILE structure, ALL these fields matter:
+fake_file = {
+    0x00: b"  sh;".ljust(8, b"\x00"),     # _flags — command to execute
+    0x20: p64(0),                          # _IO_write_base
+    0x28: p64(1),                          # _IO_write_ptr (must be > write_base)
+    0x68: p64(system_addr),                # __doallocate or similar
+    0x70: p64(0),                          # _fileno
+    0x88: p64(lock_addr),                  # ⚠️ _lock — MUST point to valid writable NULL qword!
+    0xa0: p64(wide_data_addr),             # _wide_data — for House of Apple 2
+    0xd8: p64(_IO_wfile_jumps),            # vtable — _IO_wfile_jumps for Apple 2
+    # ... wide_data struct setup ...
+}
+
+# ⚠️ MISSING _lock FIELD = GUARANTEED CRASH
+# ⚠️ VERIFY ALL OFFSETS WITH: pwndbg> ptype struct _IO_FILE_plus
+# ⚠️ VERIFY WIDE DATA WITH: pwndbg> ptype struct _IO_wide_data
+```
+
+#### Heap House Decision Tree
+```
+What glibc version? What primitives do you have?
+
+glibc ≤ 2.33:
+  → __malloc_hook / __free_hook still exist
+  → Overwrite hook with one_gadget or system
+  → Trigger: malloc() or free()
+
+glibc 2.34-2.36 (hooks removed):
+  → House of Apple 2 (FSOP via _IO_wfile)
+  → Need: arbitrary write to _IO_list_all
+  → Trigger: exit() → _IO_flush_all_lockp
+
+  → House of Banana (exit handlers)
+  → Need: write to ld.so's _rtld_global
+  → Trigger: exit() → _dl_fini
+
+All versions:
+  → Tcache poisoning → arbitrary alloc → overwrite target
+  → Fastbin attack (if tcache full)
+  → Unsorted bin attack (overwrite specific targets)
+```
+
+### Custom VM / Interpreter Exploitation
+
+**🔴 CRITICAL — Custom VMs cause more AI failures than any other challenge type.**
+
+#### Step 1: Understand the VM completely
+```
+Document BEFORE writing any exploit:
+1. Instruction format (opcode size, operand encoding, alignment)
+2. ALL registers and their sizes
+3. Memory layout (code region, data region, stack if any)
+4. The COMPLETE opcode table — what does EACH opcode do?
+5. ALL state variables (PC, flags, keys, counters)
+```
+
+#### Step 2: Trace state evolution PER OPCODE
+```
+🔴 THE #1 VM FAILURE: Missing implicit state mutations
+
+Example (chaos challenge):
+  Visible:  ADD → result = R[a] + R[b], store in R[a]
+  HIDDEN:   chaos_key ^= (result & 0xFF)  ← EASY TO MISS IN DISASSEMBLY
+  Then:     chaos_key = (chaos_key + 0x13) & 0xFF
+
+For EVERY opcode, trace:
+  1. What it reads (registers, memory, state)
+  2. What it writes (registers, memory, state)
+  3. What SIDE EFFECTS it has (key mutation, flag changes, counter updates)
+  4. How the ENCODING changes (if bytecode is encrypted/XORed with evolving key)
+```
+
+#### Step 3: Build a faithful simulator
+```python
+# Your simulator MUST track everything the real VM tracks:
+class VMSimulator:
+    def __init__(self):
+        self.regs = [0] * 8
+        self.memory = bytearray(0x200)  # Match actual VM memory size
+        self.key = 0x55                 # Initial encryption key
+        self.pc = 0
+
+    def encode_byte(self, raw):
+        """Encode one byte with current key"""
+        return raw ^ self.key
+
+    def emit_SET(self, reg, val):
+        encoded = [self.encode_byte(0x00)]  # opcode
+        encoded.append(self.encode_byte(reg))
+        encoded.append(self.encode_byte(val & 0xFF))
+        self.key = (self.key + 0x13) & 0xFF  # update key
+        return bytes(encoded)
+
+    def emit_ADD(self, dst, src):
+        # WARNING: ADD mutates key based on result!
+        result = self.regs[dst] + self.regs[src]
+        encoded = [self.encode_byte(0x01), self.encode_byte(dst), self.encode_byte(src)]
+        self.regs[dst] = result & 0xFFFFFFFFFFFFFFFF  # track register state
+        self.key = ((self.key ^ (result & 0xFF)) + 0x13) & 0xFF  # ← CRITICAL
+        return bytes(encoded)
+```
+
+#### Step 4: Target selection
+```
+When overwriting function pointers:
+1. List ALL function pointer tables (not just the obvious one)
+2. For each, check:
+   - Is there a magic number guard? (if rdi == 0xdeadc0de → skip)
+   - What arguments does it receive? (can I control them?)
+   - How is it called? (direct call? indirect through vtable?)
+3. PREFER targets without guards/checks
+4. PREFER targets where you control the argument (e.g., HALT handler gets no args → just needs to call system("/bin/sh"))
+
+Example: dispatch_table[6] had a 0xdeadc0de guard → WRONG TARGET
+         func_table[0] (HALT) had no guard → CORRECT TARGET
+```
+
+#### Step 5: Memory tricks
+```python
+# The overlapping STORE trick:
+# Instead of building large values with arithmetic (expensive),
+# use STORE to write byte-by-byte, then LOAD the QWORD:
+
+# Goal: construct 0xFFFFFFFFFFFFFFFF in a register
+vm.SET(0, 0xFF)
+for i in range(8):
+    vm.STORE(0, offset + i)    # Write 0xFF at each byte position
+vm.LOAD(1, offset)             # Load full 8-byte value → 0xFFFFFFFFFFFFFFFF
+
+# This is more instruction-efficient than shift+OR arithmetic
+# Works because STORE writes to byte-addressable memory but LOAD reads 8 bytes
+```
+
+#### Step 6: Bounds check analysis
+```
+Signed vs Unsigned — the classic VM vulnerability:
+
+cmp rsi, 0x100    ; upper bound check
+jle .ok           ; JLE = signed comparison!
+
+If index = -192 (0xFFFFFFFFFFFFFF40 unsigned):
+  Signed: -192 ≤ 256 → TRUE → passes check!
+  Result: writes at memory[-192] → BEFORE the buffer → hits function pointer table
+
+Always check: signed (jle/jge/jl/jg) or unsigned (jbe/jae/jb/ja)?
+```
+
+### Precision Exploitation (Limited Writes / Bit Flips)
+
+**For challenges with very limited modification primitives (N flips, K byte writes, etc.)**
+
+#### Step 1: Enumerate ALL possible modifications
+```
+With N bit flips, don't just try the first idea:
+
+1. List every address you CAN flip (what leaks enable targeting?)
+2. For each address, what values can each bit flip produce?
+3. Check: is each intermediate value VALID?
+   - If flipping address bits: is the intermediate address a valid instruction?
+   - If flipping data bits: does the intermediate value cause a crash?
+
+Example (3 flips):
+  Option A: 3 flips on return address → need all intermediates to be valid instructions
+  Option B: 2 flips on FILE._fileno + 1 flip on return → cleaner, all intermediates valid ✓
+```
+
+#### Step 2: Intermediate state validation
+```bash
+# CRITICAL: Every intermediate value MUST be checked
+
+# Flipping bits in a code address:
+objdump -d binary | grep <intermediate_addr>:  # Is this a valid instruction boundary?
+
+# Example of a TRAP:
+#   0x1422: b8 00 00 00 00    mov eax, 0x0   ← valid start
+#   0x1423: 00 00 00 00 5d    [mid-instruction garbage]
+#   0x1429: 55                push rbp        ← valid start
+#
+# Flipping 0x1422 → 0x1423: CRASH (mid-instruction)
+# Flipping 0x1422 → 0x142a: OK (valid instruction boundary)
+```
+
+#### Step 3: Function entry point flexibility
+```
+You don't always need to jump to func+0:
+
+func+0: push rbp          ← standard entry
+func+1: mov rbp, rsp      ← works if caller's epilogue already restored rbp
+func+4: sub rsp, 0x30     ← works if rbp is already set up
+
+Why func+1 works:
+  Caller does:
+    leave    ; mov rsp, rbp; pop rbp  ← rbp now points to caller's frame
+    ret      ; pop rip → func+1
+  func+1:
+    mov rbp, rsp  ; sets up new frame (push rbp was skipped but that's OK)
+    sub rsp, 0x30 ; allocate locals
+
+This saves one bit flip! (0x1422 → 0x142a = 1 flip vs 0x1422 → 0x1429 = 2 flips)
+```
+
+#### Step 4: Data structure exploitation targets
+```
+Beyond code pointers — data structure fields you can flip:
+
+FILE._fileno (offset +0x70):
+  3 (file) → 0 (stdin): flip bits 0,1 → redirects reads to stdin!
+  Enables: injecting commands through redirected FILE reads
+
+FILE._flags (offset +0x00):
+  Certain flag bits control read/write/error behavior
+
+Stack variables:
+  Loop counter sign bit → negative counter = extended loop
+  Size field → larger size = bigger overflow
+  Boolean flag → bypass authentication check
+
+Global pointers:
+  Function pointer tables in .data
+  Callback addresses
+```
+
+#### Step 5: Constraint partitioning
+```
+With N modifications, enumerate partitions:
+
+3 flips → possible strategies:
+  3+0: all on one target
+  2+1: two targets (e.g., 2 for FILE, 1 for return address)
+  1+1+1: three targets
+
+For each partition:
+  - Is it enough flips to achieve the goal on each target?
+  - Do I have the leaks needed for each target's address?
+  - Are all intermediate states valid?
+
+Pick the partition where ALL constraints are satisfiable.
+```
+
 ---
 
 ## ANTI-PATTERNS (What NOT to do)
@@ -631,6 +1007,22 @@ bss_addr = pie_base + 0x4000  # find exact offset with readelf -S
 ❌ "Too complex, I should simplify" → IS IT ACTUALLY COMPLEX OR IS THIS THE INTENDED PATH?
 ❌ Trying 10 variations of the same wrong approach
    → STOP. Reanalyze. You're probably missing something creative.
+
+# Heap-specific anti-patterns (from real failures):
+❌ "Heap key is heap_base >> 12"
+   → KEY IS chunk_addr >> 12 — EACH CHUNK HAS ITS OWN KEY
+❌ "FILE struct just needs the right offsets"
+   → VERIFY WITH ptype IN GDB. CHECK _lock FIELD AT 0x88. MISSING IT = CRASH.
+❌ "Unsorted bin offset is 0x21a6a0" (or any hardcoded value)
+   → CALCULATE FROM YOUR LIBC WITH GDB: p/x leaked - libc_base
+❌ "I'll try a slightly different bit pattern"
+   → STOP AFTER 3 TRIES. FIND ROOT CAUSE WITH GDB. CHECK INTERMEDIATE STATES.
+❌ "This debug output is just noise"
+   → EVERY OUTPUT IS A SIGNAL. Two DEBUG prints = key corruption. Wrong values = offset error.
+❌ "I only need 3 of these 4 leaks"
+   → USE ALL LEAKS. EACH ONE WAS PUT THERE FOR A REASON. Unused leak = missed attack vector.
+❌ "The VM key just increments by 0x13"
+   → READ THE DISASSEMBLY. Some opcodes MUTATE the key based on results (key ^= result_lo).
 ```
 
 ---

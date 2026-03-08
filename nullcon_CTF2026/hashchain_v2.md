@@ -1,10 +1,10 @@
 # HashChain v2 — CTF Pwn Challenge Writeup
 
-**Challenge:** HashChain v2
-**Category:** Binary Exploitation (Pwn)
-**Description:** *The service at 52.59.124.14:5011 repeatedly reads a line, stores a 4-byte "hash" into an internal buffer at the current offset, asks for the next offset (minimum 4), and when the next offset would go out of bounds it prints Buffer full! and jumps to the buffer, executing the stored hash-words as native code. A per-connection leak prints the runtime address of win().*
-**Remote:** `52.59.124.14:5011`
-**Files:** None provided (remote-only challenge)
+**Challenge:** HashChain v2  
+**Category:** Binary Exploitation (Pwn)  
+**Description:** *The service at 52.59.124.14:5011 repeatedly reads a line, stores a 4-byte "hash" into an internal buffer at the current offset, asks for the next offset (minimum 4), and when the next offset would go out of bounds it prints Buffer full! and jumps to the buffer, executing the stored hash-words as native code. A per-connection leak prints the runtime address of win().*  
+**Remote:** `52.59.124.14:5011`  
+**Files:** None provided (remote-only challenge)  
 
 ---
 

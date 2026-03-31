@@ -1,9 +1,9 @@
 # detonator — Detailed CTF Writeup
 
-**Challenge:** detonator
-**Category:** Reverse Engineering
-**Flag Format:** `HACK10{}`
-**Flag:** `HACK10{be029cf0e9f2eaa5f80489343630befb}`
+**Challenge:** detonator  
+**Category:** Reverse Engineering  
+**Flag Format:** `HACK10{}`  
+**Flag:** `HACK10{be029cf0e9f2eaa5f80489343630befb}`  
 
 ---
 
